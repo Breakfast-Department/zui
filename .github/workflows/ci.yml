@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        compiler: [gcc, clang]
+        build_type: [Debug, Release]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            pkg-config \
+            libwayland-dev \
+            libwayland-egl1 \
+            libegl1-mesa-dev \
+            libgl1-mesa-dev \
+            ${{ matrix.compiler == 'clang' && 'clang' || '' }}
+
+      - name: Configure
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DCMAKE_C_COMPILER=${{ matrix.compiler }}
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Build artifacts info
+        run: |
+          ls -la build/*.a build/zui_example 2>/dev/null || true
+          file build/zui_example
+
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            pkg-config \
+            libwayland-dev \
+            libwayland-egl1 \
+            libegl1-mesa-dev \
+            libgl1-mesa-dev \
+            clang-tools
+
+      - name: Configure with compile commands
+        run: cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Run clang-tidy
+        run: |
+          if compgen -G "src/*.c" > /dev/null; then
+            clang-tidy src/*.c -p build --warnings-as-errors='*' || true
+          fi
