@@ -1,3 +1,4 @@
+#include "zui/font.h"
 #include <zui/internal/widget_internal.h>
 #include <zui/internal/window_internal.h>
 #include <zui/internal/icon_internal.h>
@@ -275,7 +276,7 @@ static void label_draw(ZuiWidget *widget, ZuiRenderer *renderer)
     if (!label->text || !label->font) return;
 
     float text_w = zui_font_text_width(label->font, label->text);
-    float text_h = zui_font_line_height(label->font);
+    float text_h = zui_font_text_height(label->font, label->text);
 
     float x = widget->bounds.x + (widget->bounds.width - text_w) / 2;
     float y = widget->bounds.y + (widget->bounds.height - text_h) / 2;
@@ -313,11 +314,32 @@ static ZuiFont *get_default_font(void)
             "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
         };
         for (size_t i = 0; i < sizeof(font_paths) / sizeof(font_paths[0]); i++) {
-            g_default_font = zui_font_load(font_paths[i], 14.0f);
+            g_default_font = zui_font_load(font_paths[i], 16.0f);
             if (g_default_font) break;
         }
     }
+
     return g_default_font;
+}
+
+ZuiFont *zui_font_create(void)
+{
+    ZuiFont *font = NULL;
+    const char *font_paths[] = {
+        "/usr/share/fonts/noto/NotoSans-Regular.ttf",
+        "/usr/share/fonts/TTF/NotoSans-Regular.ttf",
+        "/usr/share/fonts/TTF/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/TTF/liberation/LiberationSans-Regular.ttf",
+        "/usr/share/fonts/liberation/LiberationSans-Regular.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+    };
+    for (size_t i = 0; i < sizeof(font_paths) / sizeof(font_paths[0]); i++) {
+        font = zui_font_load(font_paths[i], 16.0f);
+        if (font) break;
+    }
+    return font;
 }
 
 ZuiLabel *zui_label_create(const char *text)
@@ -333,7 +355,7 @@ ZuiLabel *zui_label_create(const char *text)
 
     if (label->font && text) {
         label->base.preferred_size.width = zui_font_text_width(label->font, text) + 16;
-        label->base.preferred_size.height = zui_font_line_height(label->font) + 8;
+        label->base.preferred_size.height = zui_font_text_height(label->font, text) + 8;
     } else {
         size_t len = text ? strlen(text) : 0;
         label->base.preferred_size.width = (float)(len * 8 + 16);
@@ -341,6 +363,35 @@ ZuiLabel *zui_label_create(const char *text)
     }
 
     return label;
+}
+
+void zui_label_set_size(ZuiLabel *label, float size)
+{
+    if (!label) return;
+
+    if (size < 9.0f) size = 9.0f;
+    else if (size > 107.0f) size = 100.0f;
+
+    if (label->font == g_default_font) label->font = zui_font_create();
+    label->font->size = size;
+
+    if (!init_font(label->font, label->font->font_data, size))
+        free(label->font->font_data);
+
+    if (label->font && label->text) {
+        label->base.preferred_size.width = zui_font_text_width(label->font, label->text) + 16;
+        label->base.preferred_size.height = zui_font_text_height(label->font, label->text) + 8;
+    } else {
+        size_t len = label->text ? strlen(label->text) : 0;
+        label->base.preferred_size.width = (float)(len * 8 + 16);
+        label->base.preferred_size.height = 24.0f;
+    }
+}
+
+float zui_get_font_size(ZuiLabel *label)
+{
+    if (!label) return 0.0f;
+    return label->font->size;
 }
 
 void zui_label_set_text(ZuiLabel *label, const char *text)
@@ -351,9 +402,11 @@ void zui_label_set_text(ZuiLabel *label, const char *text)
 
     if (label->font && text) {
         label->base.preferred_size.width = zui_font_text_width(label->font, text) + 16;
+        label->base.preferred_size.height = zui_font_text_height(label->font, text) + 8;
     } else {
         size_t len = text ? strlen(text) : 0;
         label->base.preferred_size.width = (float)(len * 8 + 16);
+        label->base.preferred_size.height = 24.0f;
     }
 }
 
@@ -368,7 +421,7 @@ void zui_label_set_font(ZuiLabel *label, ZuiFont *font)
 
     if (label->font && label->text) {
         label->base.preferred_size.width = zui_font_text_width(label->font, label->text) + 16;
-        label->base.preferred_size.height = zui_font_line_height(label->font) + 8;
+        label->base.preferred_size.height = zui_font_text_height(label->font, label->text) + 8;
     }
 }
 

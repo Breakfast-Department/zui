@@ -32,9 +32,7 @@ struct ZuiWindow {
     int max_width;
     int max_height;
     float corner_radius;
-    float curve_intensity;
     ZuiColor background_color;
-    ZuiColor titlebar_color;
     ZuiColor border_color;
     float border_width;
 
@@ -53,6 +51,7 @@ void zui_window_handle_button(ZuiWindow *window, double x, double y,
 void zui_window_handle_key(ZuiWindow *window, uint32_t key, bool pressed);
 void zui_window_request_close(ZuiWindow *window);
 void zui_window_set_maximized_state(ZuiWindow *window, bool maximized);
+void zui_window_set_active_state(ZuiWindow *window, bool active);
 void zui_window_mark_needs_redraw(ZuiWindow *window);
 
 #endif

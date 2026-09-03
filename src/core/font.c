@@ -35,7 +35,7 @@ static unsigned char *load_file(const char *path, int *size)
     return data;
 }
 
-static bool init_font(ZuiFont *font, const unsigned char *font_data, float size)
+bool init_font(ZuiFont *font, const unsigned char *font_data, float size)
 {
     stbtt_fontinfo info;
     if (!stbtt_InitFont(&info, font_data, 0)) {
@@ -184,15 +184,34 @@ float zui_font_text_width(ZuiFont *font, const char *text)
 {
     if (!font || !text) return 0;
 
-    float width = 0;
+    float max_width = 0;
+    float line_width = 0;
+
     while (*text) {
         int c = (unsigned char)*text;
-        if (c >= ZUI_FONT_FIRST_CHAR && c < ZUI_FONT_FIRST_CHAR + ZUI_FONT_NUM_CHARS) {
-            width += font->glyphs[c - ZUI_FONT_FIRST_CHAR].advance;
+        if (c == '\n') {
+            if (line_width > max_width) max_width = line_width;
+            line_width = 0;
+        } else if (c >= ZUI_FONT_FIRST_CHAR && c < ZUI_FONT_FIRST_CHAR + ZUI_FONT_NUM_CHARS) {
+            line_width += font->glyphs[c - ZUI_FONT_FIRST_CHAR].advance;
         }
         text++;
     }
-    return width;
+
+    if (line_width > max_width) max_width = line_width;
+    return max_width;
+}
+
+float zui_font_text_height(ZuiFont *font, const char *text)
+{
+    if (!font || !text) return 0;
+
+    int lines = 1;
+    while (*text) {
+        if (*text == '\n') lines++;
+        text++;
+    }
+    return font->line_height * (float)lines;
 }
 
 float zui_font_line_height(ZuiFont *font)
@@ -220,7 +239,10 @@ void zui_font_render_text(ZuiFont *font, ZuiRenderer *renderer,
 
     while (*text) {
         int c = (unsigned char)*text;
-        if (c >= ZUI_FONT_FIRST_CHAR && c < ZUI_FONT_FIRST_CHAR + ZUI_FONT_NUM_CHARS) {
+        if (c == '\n') {
+            cursor_x = x;
+            baseline_y += font->line_height;
+        } else if (c >= ZUI_FONT_FIRST_CHAR && c < ZUI_FONT_FIRST_CHAR + ZUI_FONT_NUM_CHARS) {
             ZuiGlyph *g = &font->glyphs[c - ZUI_FONT_FIRST_CHAR];
 
             float gx = cursor_x + g->x0;
