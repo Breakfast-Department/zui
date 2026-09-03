@@ -9,7 +9,7 @@
 <h1 align="center">ZUI</h1>
 
 <p align="center">
-  Toolkit GUI C11 tahap awal yang dibuat langsung untuk Wayland dan dirender dengan EGL/OpenGL.
+  Toolkit GUI berbasis C11 yang dibuat langsung untuk Wayland dan menggunakan EGL/OpenGL untuk rendering.
 </p>
 
 <p align="center">
@@ -20,51 +20,51 @@
 </p>
 
 > [!WARNING]
-> ZUI masih dalam tahap pengembangan awal. API dapat berubah tanpa pemberitahuan. Saat ini ZUI hanya menargetkan Wayland dan belum menyediakan paket instalasi, alur konsumsi eksternal yang stabil, atau rangkaian pengujian otomatis.
+> ZUI masih dalam tahap early development. API dapat berubah tanpa pemberitahuan. Saat ini ZUI hanya mendukung Wayland dan belum menyediakan installation package, workflow integrasi eksternal yang stabil, atau automated test suite.
 
-- [Ikhtisar](#ikhtisar)
-- [Fitur Saat Ini](#fitur-saat-ini)
-- [Status dan Batasan Proyek](#status-dan-batasan-proyek)
-- [Kebutuhan Sistem](#kebutuhan-sistem)
-- [Mulai Cepat](#mulai-cepat)
-- [Panduan Pengguna](#panduan-pengguna)
-- [Ikhtisar API Publik](#ikhtisar-api-publik)
-- [Panduan Developer](#panduan-developer)
-- [Pemecahan Masalah](#pemecahan-masalah)
+- [Overview](#overview)
+- [Current Features](#current-features)
+- [Project Status and Limitations](#project-status-and-limitations)
+- [Requirements](#requirements)
+- [Quick Start](#quick-start)
+- [User Guide](#user-guide)
+- [Public API Overview](#public-api-overview)
+- [Developer Guide](#developer-guide)
+- [Troubleshooting](#troubleshooting)
 - [Roadmap](#roadmap)
-- [Berkontribusi](#berkontribusi)
-- [Lisensi](#lisensi)
+- [Contribute](#contribute)
+- [License](#license)
 
-## Ikhtisar
+## Overview
 
-ZUI menyediakan fondasi GUI native berukuran kecil untuk aplikasi Linux yang berjalan dalam sesi Wayland. ZUI terhubung langsung ke Wayland, membuat window berbasis EGL, merender widget melalui OpenGL, dan menyediakan API C yang ringkas.
+ZUI menyediakan fondasi GUI native untuk aplikasi Linux yang berjalan dalam sesi Wayland. Toolkit ini terhubung langsung ke Wayland, membuat EGL-backed windows, merender widget melalui OpenGL, dan menyediakan public API berbasis C yang ringkas.
 
-Proyek ini sudah dapat digunakan untuk eksperimen, belajar, dan berkontribusi pada toolkit yang masih muda. ZUI belum ditujukan sebagai framework GUI yang siap produksi atau lintas platform.
+Proyek ini dapat digunakan untuk eksperimen, belajar, dan berkontribusi pada toolkit yang masih berada di tahap awal. ZUI belum ditujukan sebagai GUI framework yang production-ready atau cross-platform.
 
-## Fitur Saat Ini
+## Current Features
 
 - Window Wayland native menggunakan XDG Shell.
-- Pengelolaan context dan surface EGL.
-- Rendering OpenGL untuk window, persegi, teks, icon, dan image.
+- Pengelolaan EGL context dan surface.
+- Rendering OpenGL untuk window, rectangle, text, icon, dan image.
 - Titlebar custom dengan tombol close, minimize, maximize, dan hide bawaan.
 - Label, tombol interaktif, icon SVG, dan image raster.
-- Tree widget dengan padding, spacing, warna latar, dan sudut membulat.
+- Widget tree dengan padding, spacing, background color, dan rounded corners.
 - Cursor widget yang dapat diatur.
-- Pemuatan font dari file atau memory.
+- Font loading dari file atau memory.
 - Build GCC dan Clang melalui CMake.
 
-## Status dan Batasan Proyek
+## Project Status and Limitations
 
-Saat ini ZUI memiliki cakupan yang sengaja dibuat kecil:
+Untuk saat ini, ZUI sengaja mempertahankan scope yang kecil:
 
 - Linux dengan compositor Wayland adalah satu-satunya runtime yang didukung.
-- API publik masih berkembang dan dapat berubah di antara commit.
+- Public API masih berkembang dan dapat berubah sewaktu-waktu.
 - Proyek membangun target statis `zui`, tetapi belum memiliki aturan install/export CMake.
-- Instalasi asset runtime belum diformalkan; shader, icon bawaan, dan logo harus tetap dapat diakses.
-- Pengujian otomatis dan release publik belum tersedia.
+- Instalasi runtime assets belum diformalkan; shader, icon bawaan, dan logo harus tetap dapat diakses.
+- Automated test suite dan public release belum tersedia.
 - Backend X11, Windows, dan macOS belum diimplementasikan.
 
-## Kebutuhan Sistem
+## Requirements
 
 Anda membutuhkan:
 
@@ -72,8 +72,8 @@ Anda membutuhkan:
 - compiler yang mendukung C11, seperti GCC atau Clang;
 - CMake 3.16 atau versi yang lebih baru;
 - pkg-config;
-- file development Wayland client, EGL, dan cursor;
-- file development EGL dan OpenGL.
+- Wayland client, EGL, dan cursor development headers serta libraries;
+- EGL dan OpenGL development headers serta libraries.
 
 Pasang dependency build untuk distribusi Anda.
 
@@ -96,11 +96,11 @@ sudo dnf install gcc cmake pkgconf-pkg-config wayland-devel libglvnd-devel
 sudo pacman -S --needed base-devel cmake pkgconf wayland libglvnd
 ```
 
-Nama paket dapat berbeda pada release distribusi yang lebih lama.
+Nama paket dapat berbeda pada versi distribusi yang lebih lama.
 
-## Mulai Cepat
+## Quick Start
 
-Clone dan build ZUI:
+Clone repository, lalu build ZUI:
 
 ```sh
 git clone https://github.com/yusuf601/zui.git
@@ -109,24 +109,24 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 ```
 
-Opsi `ZUI_BUILD_EXAMPLES` aktif secara default. Jalankan contoh bawaan dari root repository:
+Opsi `ZUI_BUILD_EXAMPLES` aktif secara default. Jalankan contoh bawaan dari repository root:
 
 ```sh
 ./build/zui_example
 ```
 
-Program harus dijalankan di dalam sesi Wayland yang dapat digunakan. Proses build juga menyalin asset runtime bawaan ZUI ke `build/assets/`.
+Program harus dijalankan di dalam sesi Wayland yang aktif. Proses build juga menyalin runtime assets bawaan ZUI ke `build/assets/`.
 
-## Panduan Pengguna
+## User Guide
 
-### Lifecycle Aplikasi
+### Application Lifecycle
 
 Aplikasi ZUI mengikuti tujuh langkah:
 
 1. Sertakan `zui/zui.h`.
 2. Panggil `zui_init()`.
 3. Buat `ZuiWindow`.
-4. Susun titlebar dan tree widget content.
+4. Susun titlebar dan content widget tree.
 5. Tampilkan window.
 6. Proses event dan render selama window masih berjalan.
 7. Hancurkan window dan panggil `zui_shutdown()`.
@@ -174,20 +174,20 @@ int main(void)
 
 Lihat [`examples/main.c`](examples/main.c) untuk contoh lebih lengkap yang menggunakan titlebar, label, tombol dengan styling, callback, dan kontrol window.
 
-Karena ZUI belum menyediakan aturan install/export, alur awal yang didukung adalah melakukan build dan eksperimen di dalam repository. Prosedur integrasi system-wide yang stabil akan didokumentasikan setelah packaging dan instalasi asset runtime tersedia.
+Karena ZUI belum menyediakan aturan install/export, cara yang didukung saat ini adalah melakukan build dan eksperimen langsung di dalam repository. Workflow integrasi system-wide akan didokumentasikan setelah packaging dan instalasi runtime assets tersedia.
 
-### Window dan Titlebar
+### Windows and Titlebars
 
-Buat window dengan `zui_window_create(width, height, title)`. Setelah itu, Anda dapat mengatur judul, radius sudut, ukuran minimum, ukuran maksimum, dan logo.
+Buat window dengan `zui_window_create(width, height, title)`. Setelah itu, Anda dapat mengatur title, corner radius, minimum size, maximum size, dan logo.
 
 Setiap window menyediakan:
 
 - `zui_window_titlebar()` untuk titlebar custom;
-- `zui_window_content()` untuk container content utama.
+- `zui_window_content()` untuk content container utama.
 
-Titlebar memiliki area start, center, dan end. Tambahkan widget dengan `zui_titlebar_set_start()`, `zui_titlebar_set_center()`, atau `zui_titlebar_set_end()`. Widget kontrol window bawaan tersedia melalui fungsi tombol close, minimize, maximize, dan hide.
+Titlebar memiliki area start, center, dan end. Tambahkan widget dengan `zui_titlebar_set_start()`, `zui_titlebar_set_center()`, atau `zui_titlebar_set_end()`. Built-in window controls tersedia melalui fungsi close, minimize, maximize, dan hide button.
 
-### Widget dan Callback
+### Widgets and Callbacks
 
 Buat teks dengan `zui_label_create()` dan kontrol interaktif dengan `zui_button_create()`. Callback klik menerima `ZuiWidget *` yang diklik dan pointer `user_data` yang didaftarkan melalui `zui_button_on_click()`.
 
@@ -199,41 +199,41 @@ Operasi widget umum mencakup:
 - memilih cursor;
 - memasangnya ke parent.
 
-Selalu periksa nilai hasil constructor yang mengembalikan pointer ketika kegagalan alokasi atau pemuatan resource perlu ditangani.
+Selalu periksa nilai yang dikembalikan constructor. Alokasi memory atau resource loading dapat gagal dan menghasilkan pointer `NULL`.
 
-### Layout dan Styling
+### Layout and Styling
 
-Tambahkan child dengan `zui_widget_add_child(parent, child)`. Container content window saat ini menyusun child secara vertikal dan meletakkannya di tengah. Kontrol layout publik saat ini menyediakan padding dan spacing; arah layout dan alignment belum dapat dikonfigurasi melalui setter publik.
+Tambahkan child dengan `zui_widget_add_child(parent, child)`. Window content container saat ini menyusun child secara vertikal dan meletakkannya di tengah. Public layout API menyediakan padding dan spacing; layout direction dan alignment belum dapat dikonfigurasi melalui public setter.
 
 Warna menggunakan nilai RGBA floating-point yang dinormalisasi. Helper `ZUI_COLOR`, `ZUI_COLOR_RGB`, dan `ZUI_COLOR_HEX` mempersingkat deklarasi warna umum.
 
-### Font, Icon, dan Image
+### Fonts, Icons, and Images
 
 - Muat font dengan `zui_font_load()` atau `zui_font_load_memory()`, kemudian pasang dengan `zui_label_set_font()`.
 - Muat sumber SVG dengan `zui_icon_load_svg()` atau `zui_icon_load_svg_data()`, kemudian buat `ZuiIcon` dengan ukuran yang dibutuhkan.
 - Buat image raster dari file atau memory dengan `zui_image_create()` dan `zui_image_create_from_memory()`.
 
-Implementasi icon dan image mengunggah texture ketika digunakan oleh renderer. Pembuatan resource dapat gagal, jadi caller harus memeriksa pointer yang dikembalikan.
+Implementasi icon dan image mengunggah texture saat digunakan oleh renderer. Pembuatan resource dapat gagal, jadi caller harus memeriksa pointer yang dikembalikan.
 
-### Ownership dan Cleanup
+### Ownership and Cleanup
 
-Menambahkan widget ke parent menjadikannya bagian dari tree widget tersebut. Menghancurkan parent akan menghancurkan seluruh child yang terpasang secara rekursif, jadi jangan menghancurkan child yang sama secara terpisah.
+Menambahkan widget ke parent menjadikannya bagian dari widget tree tersebut. Menghancurkan parent akan menghancurkan seluruh child yang terpasang secara rekursif, jadi jangan menghancurkan child yang sama secara terpisah.
 
 Font yang dimuat dan object `ZuiIconSource` memiliki fungsi destroy eksplisit. Memasang font ke label atau membuat icon dari icon source tidak memindahkan ownership resource mandiri tersebut; pertahankan resource selama masih digunakan dan hancurkan setelah widget yang bergantung padanya selesai digunakan.
 
 Hancurkan window tingkat atas sebelum `zui_shutdown()`.
 
-### Asset Runtime
+### Runtime Assets
 
-ZUI saat ini bergantung pada file shader bawaan dan menggunakan icon serta logo bawaan untuk kontrol window default. CMake menyalin `assets/` ke build tree, sedangkan runtime mencari shader di beberapa lokasi yang ditujukan untuk development.
+ZUI saat ini bergantung pada shader bawaan serta menggunakan icon dan logo bawaan untuk kontrol window default. CMake menyalin `assets/` ke build tree, sedangkan runtime mencari shader di beberapa development path.
 
-Sampai dukungan instalasi ditambahkan, jalankan contoh dari root repository atau direktori build dan pertahankan salinan tree asset di samping executable. Font, file SVG, dan image milik aplikasi juga harus dapat dibaca dari path yang diberikan.
+Sampai dukungan instalasi ditambahkan, jalankan contoh dari repository root atau build directory dan pertahankan salinan asset tree di samping executable. Font, file SVG, dan image milik aplikasi juga harus dapat dibaca dari path yang diberikan.
 
-## Ikhtisar API Publik
+## Public API Overview
 
-Header publik adalah referensi API yang otoritatif.
+Public headers adalah referensi API utama.
 
-| Area | API representatif | Header |
+| Area | Representative API | Header |
 | --- | --- | --- |
 | Lifecycle | `zui_init`, `zui_poll_events`, `zui_shutdown` | [`app.h`](include/zui/app.h) |
 | Window | `zui_window_create`, titlebar, dan kontrol window | [`window.h`](include/zui/window.h) |
@@ -244,24 +244,24 @@ Header publik adalah referensi API yang otoritatif.
 | Icon SVG | pemuatan source, pengaturan ukuran, tint | [`icon.h`](include/zui/icon.h) |
 | Image | pemuatan file/memory, ukuran, visibility | [`image.h`](include/zui/image.h) |
 
-Sertakan [`zui/zui.h`](include/zui/zui.h) saat Anda membutuhkan seluruh permukaan API publik.
+Gunakan [`zui/zui.h`](include/zui/zui.h) untuk mengakses seluruh public API.
 
-## Panduan Developer
+## Developer Guide
 
-### Struktur Repository
+### Repository Layout
 
-| Path | Tanggung jawab |
+| Path | Responsibility |
 | --- | --- |
 | `include/zui/` | Header publik yang tersedia untuk aplikasi. |
-| `include/zui/internal/` | Interface privat yang digunakan bersama oleh unit implementasi ZUI. |
-| `src/core/` | State aplikasi, window, widget, layout, font, icon, dan image. |
-| `src/platform/wayland/` | Koneksi Wayland, input, window, cursor, dan protocol yang dihasilkan. |
-| `src/renderer/opengl/` | Setup EGL dan rendering OpenGL. |
+| `include/zui/internal/` | Internal interfaces yang digunakan oleh implementasi ZUI. |
+| `src/core/` | Application state, window, widget, layout, font, icon, dan image. |
+| `src/platform/wayland/` | Koneksi Wayland, input, window, cursor, dan generated protocol files. |
+| `src/renderer/opengl/` | EGL setup dan rendering OpenGL. |
 | `assets/` | Shader runtime, font bawaan, icon, dan logo proyek. |
 | `examples/` | Program kecil yang menggunakan API publik. |
 | `external/` | Source GLAD, NanoSVG, dan stb yang disertakan langsung. |
 
-### Arsitektur Runtime
+### Runtime Architecture
 
 Alur runtime utama adalah:
 
@@ -275,9 +275,9 @@ zui_init()
   -> destroy windows and call zui_shutdown()
 ```
 
-`src/core/app.c` memiliki state global platform, EGL, dan renderer. Backend Wayland menerjemahkan event compositor dan input menjadi operasi window/widget. Rendering window menghitung layout, menggambar tree widget, menukar buffer EGL, dan menjadwalkan frame berikutnya.
+`src/core/app.c` menyimpan global state untuk platform, EGL, dan renderer. Backend Wayland menerjemahkan compositor dan input events menjadi operasi window/widget. Window rendering menghitung layout, menggambar widget tree, melakukan EGL buffer swap, dan menjadwalkan frame berikutnya.
 
-### Build Development
+### Development Builds
 
 Buat build Debug dengan informasi debug tambahan dan tanpa optimisasi:
 
@@ -300,19 +300,19 @@ Target utama adalah:
 - `copy_assets` — menyalin asset bawaan ke build tree;
 - `zui_example` — executable contoh ketika example diaktifkan.
 
-### Panduan Coding
+### Coding Guidelines
 
-- Gunakan C11 dan ikuti format file di sekitar kode yang diubah.
+- Gunakan C11 dan ikuti style yang sudah digunakan di file terkait.
 - Letakkan deklarasi untuk aplikasi di `include/zui/` dan detail implementasi di `include/zui/internal/`.
 - Pertahankan konfigurasi warning GCC/Clang yang ketat di `CMakeLists.txt`.
 - Jaga perubahan tetap terfokus; hindari refactor yang tidak berkaitan.
-- Periksa setiap alokasi, object platform, dan resource eksternal pada batas tempat kegagalan dapat terjadi.
+- Periksa hasil setiap alokasi serta operasi platform atau resource yang dapat gagal.
 - Jaga penambahan API publik tetap kecil serta dokumentasikan aturan ownership dan lifetime.
-- Jangan mengedit file protocol Wayland hasil generate secara manual kecuali memang sedang melakukan regenerasi.
+- Jangan mengedit generated Wayland protocol files secara manual kecuali memang sedang melakukan regenerasi.
 
-### Verifikasi dan CI
+### Verification and CI
 
-Sebelum membuka pull request, lakukan configure dan build kombinasi yang terdampak menggunakan GCC dan Clang jika tersedia. Setidaknya, build aplikasi contoh dan pastikan tidak ada warning compiler baru.
+Sebelum membuka pull request, jalankan configure dan build untuk kombinasi compiler serta configuration yang terdampak. Gunakan GCC dan Clang jika tersedia. Setidaknya, build aplikasi contoh dan pastikan tidak ada compiler warning baru.
 
 Workflow CI saat ini melakukan build berikut:
 
@@ -321,9 +321,9 @@ Workflow CI saat ini melakukan build berikut:
 | GCC | Debug dan Release |
 | Clang | Debug dan Release |
 
-CI juga menjalankan clang-tidy, tetapi langkah tersebut saat ini tidak memblokir build. ZUI belum memiliki rangkaian pengujian otomatis; build yang berhasil tidak boleh dianggap sebagai validasi perilaku atau visual.
+CI juga menjalankan clang-tidy, tetapi langkah tersebut saat ini tidak memblokir build. ZUI belum memiliki automated test suite; build yang berhasil tidak boleh dianggap sebagai validasi perilaku atau visual.
 
-## Pemecahan Masalah
+## Troubleshooting
 
 ### CMake tidak dapat menemukan dependency
 
@@ -333,7 +333,7 @@ Periksa modul pkg-config terlebih dahulu:
 pkg-config --modversion wayland-client wayland-egl wayland-cursor egl
 ```
 
-Jika ada modul yang tidak ditemukan, pasang paket development terkait dari bagian [Kebutuhan Sistem](#kebutuhan-sistem), kemudian jalankan configure kembali.
+Jika ada modul yang tidak ditemukan, pasang development package terkait dari bagian [Requirements](#requirements), kemudian jalankan ulang CMake configure.
 
 ### ZUI tidak dapat terhubung ke Wayland
 
@@ -352,7 +352,7 @@ Pastikan driver grafis menyediakan EGL dan OpenGL, kemudian periksa pesan error 
 
 ### Shader, icon, font, atau image tidak ditemukan
 
-Jalankan contoh dari root repository dengan `./build/zui_example` atau dari build tree, dan pastikan `build/assets/` tersedia. Untuk resource milik aplikasi, pastikan path yang diberikan dapat dibaca dari lokasi runtime aplikasi.
+Jalankan contoh dari repository root dengan `./build/zui_example` atau dari build tree, lalu pastikan `build/assets/` tersedia. Untuk resource milik aplikasi, pastikan path yang diberikan dapat dibaca dari lokasi runtime aplikasi.
 
 ## Roadmap
 
@@ -364,19 +364,19 @@ Arah proyek saat ini sengaja dibuat luas:
 - memperluas contoh dan dokumentasi referensi;
 - mengeksplorasi backend platform tambahan setelah backend Wayland matang.
 
-Belum ada tanggal release yang dijanjikan.
+Belum ada release schedule yang ditetapkan.
 
-## Berkontribusi
+## Contribute
 
 Issue dan pull request yang terfokus dipersilakan. Sebelum berkontribusi:
 
-1. Baca [Panduan Developer](#panduan-developer).
+1. Baca [Developer Guide](#developer-guide).
 2. Reproduksi perilaku di Wayland.
 3. Jaga scope perubahan dan perbarui kedua bahasa README ketika dokumentasi berubah.
 4. Lakukan build dengan konfigurasi GCC dan Clang yang relevan.
 5. Jelaskan apa yang telah diverifikasi dan apa yang belum dapat diuji secara visual.
 
-## Lisensi
+## License
 
 ZUI tersedia di bawah [Lisensi MIT](LICENSE).
 
