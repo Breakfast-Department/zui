@@ -1,338 +1,1410 @@
----
-name: remove-ai-marks
-description: >
-  Remove multi-vendor AI provenance marks: invisible Unicode (Layer A), statistical
-  text watermarks via rewrite (Layer B, always offer), and C2PA/EXIF/XMP/container
-  metadata on PNG/JPEG/WebP/SVG/PDF/DOCX/ODT/HTML/MD. Covers Claude, Gemini/SynthID-class,
-  OpenAI provenance, and open-LLM sampling marks. Use when the user asks to strip
-  watermarks, remove C2PA/Content Credentials, clean AI metadata, remove invisible
-  Unicode, anti-detect clean AI output, or runs /remove-ai-marks (aliases:
-  /remove-claude-marks).
----
+# ZUI Development Skills
 
-# Remove AI marks
+## Engineering Philosophy
 
-Multi-vendor anti-detection hygiene for **text** (Unicode + statistical rewrite) and **files** (C2PA / AI metadata across common containers).
+ZUI development prioritizes simplicity, correctness, consistency, maintainability, and performance. Every implementation should strengthen the existing architecture rather than introduce unnecessary complexity.
 
-Read if needed:
+Prefer explicit and understandable C over clever abstractions. Prefer existing project patterns over introducing new patterns. Prefer a small coherent implementation over a large generalized system designed for hypothetical future requirements.
 
-- `references/mark-classes.md` — Unicode / sampling / C2PA / containers
-- `references/vendor-notes.md` — Claude, Gemini/SynthID, OpenAI, open-LLM
-- `references/removal-matrix.md` — which layer when
-- `references/ethics.md` — intended use
-- `references/how-claude-marks.md` — Anthropic-specific detail
-- `references/markdiffusion.md` — optional MarkDiffusion image harness (schemes, honesty caveats)
+The agent should always understand the responsibility of the code before modifying it. Code should be written with the assumption that another developer will need to maintain, debug, extend, and understand it later.
 
-This skill is a **thin client**. All deterministic cleaning machinery runs in a
-separate HTTP service (this repo's `service/`), so the agent host needs no
-Python, venvs, or cleaning tools. Call the service with `curl`; never run
-cleaning scripts directly.
+A successful implementation is not simply code that compiles. It must fit naturally into the architecture and behavior of the rest of ZUI.
 
-## Service access
 
-Base URL comes from `WATERMARKS_SERVICE_URL`, default `http://127.0.0.1:8765`:
 
-```bash
-WM="${WATERMARKS_SERVICE_URL:-http://127.0.0.1:8765}"
+## Repository Awareness
+
+Before implementing a non-trivial change, inspect the relevant parts of the repository.
+
+Understand existing:
+
+* directory structure;
+* source files;
+* public headers;
+* internal headers;
+* data structures;
+* widget hierarchy;
+* rendering flow;
+* layout system;
+* event handling;
+* window lifecycle;
+* resource management;
+* platform backend;
+* build configuration;
+* examples;
+* tests.
+
+Search for existing implementations before creating new ones.
+
+If functionality similar to the requested feature already exists, extend or reuse it instead of creating a parallel implementation.
+
+Never assume that an API, structure, helper, field, macro, or subsystem exists without checking the repository.
+
+
+
+## Change Scope
+
+Implement only what is necessary for the requested task.
+
+Do not combine unrelated work with a feature implementation.
+
+Avoid opportunistic:
+
+* refactoring;
+* formatting changes;
+* renaming;
+* dependency updates;
+* architectural rewrites;
+* file reorganizations;
+* API redesigns.
+
+A feature request should not become an excuse to rewrite unrelated portions of ZUI.
+
+If a broader architectural change is genuinely required, identify why the existing architecture cannot support the feature and keep the change as focused as possible.
+
+
+
+## Clean C
+
+Write idiomatic, readable C.
+
+Prefer straightforward control flow and explicit state over complicated macro-based abstractions.
+
+Use the language naturally:
+
+```c
+if (!window) {
+    return NULL;
+}
 ```
 
-The service is started either by the operator (`docker compose up -d`, or a
-published GHCR image) or locally (`make serve`). **Always check it first**, and
-stop with a clear message if it is unreachable — never fall back to local
-cleaning:
+rather than hiding important behavior behind macros or unnecessary abstraction layers.
 
-```bash
-curl -sf "$WM/health"
-# {"ok": true, "version": "..."}
+Avoid unnecessary:
+
+* macros;
+* casts;
+* global state;
+* function-pointer indirection;
+* heap allocations;
+* nested conditions;
+* duplicated logic;
+* deeply coupled structures.
+
+C code should be easy to inspect with a debugger.
+
+
+
+## Formatting and Style
+
+Follow the formatting style already used by the repository.
+
+Do not reformat unrelated code.
+
+Maintain consistent:
+
+* indentation;
+* brace placement;
+* pointer formatting;
+* spacing;
+* naming;
+* line structure;
+* declaration style.
+
+Consistency with the surrounding code takes precedence over personal formatting preferences.
+
+
+
+## Naming
+
+Names must communicate intent.
+
+Use descriptive names for meaningful state:
+
+```c
+float width;
+float height;
+float corner_radius;
+float spacing;
+ZuiWidget *child;
+ZuiWindow *window;
 ```
 
-If `WATERMARKS_SERVER_API_KEY` is set on the service, every request needs
-`-H "Authorization: Bearer $WATERMARKS_SERVICE_API_KEY"`.
+Avoid meaningless names outside genuinely small scopes.
 
-### Capabilities
+Names should follow the existing ZUI convention for:
 
-```bash
-curl -s "$WM/capabilities"
+* public functions;
+* internal functions;
+* structures;
+* enums;
+* constants;
+* variables;
+* callbacks;
+* files.
+
+Never introduce a second naming convention.
+
+
+
+## Functions
+
+Every function should have a clear responsibility.
+
+A function should not simultaneously manage unrelated concerns such as:
+
+```text
+input processing
+layout calculation
+resource allocation
+rendering
+event dispatch
 ```
 
-Reports which optional tools are available server-side (`c2patool`, `exiftool`,
-`qpdf`, `ghostscript`), scorers present (`scorers.stylometry`, `scorers.synthid`,
-`scorers.synthid_http`), text-watermark detectors
-(`text_detectors.markllm`,
-`text_detectors.claude-text`), and which heavy backends are configured
-(`pixel_backends.ctrlregen`, `pixel_backends.diffusion`, `harnesses.markllm`).
-**Drive your advice from this**: only recommend pixel removal / SynthID
-scoring / vendor detection when the service reports the backend present.
+unless the architecture explicitly requires that combination.
 
-## HTTP API (curl)
+Do not split code into tiny functions merely to reduce line count.
 
-Payloads are JSON with the file as **base64**. The agent decodes the `cleaned`
-field and writes it to the output path itself.
+Create helpers when they represent meaningful reusable operations or make a complex responsibility easier to understand.
 
-| Method | Path | Body | Returns |
-| --- | --- | --- | --- |
-| GET | `/health` | — | `{"ok": true, "version": ...}` |
-| GET | `/capabilities` | — | optional tools / backends present |
-| GET | `/openapi.json` | — | dynamically generated OpenAPI 3.0.3 spec |
-| POST | `/inspect` | `{"file": "<base64>", "name": "notes.md"}` | `{"ok", "kind", "suspicious", "report"}` |
-| POST | `/detect` | `{"file": "<base64>", "name": "notes.txt"}` | `{"ok", "kind", "detections": [...]}` |
-| POST | `/clean` | `{"file": "<base64>", "name": "notes.md", "options": {...}}` | `{"ok", "kind", "cleaned": "<base64>", "report"}` |
+Prefer functions with predictable inputs, outputs, and side effects.
 
-`/clean` and `/inspect` route by the uploaded `name` extension plus the bytes;
-unrecognized formats answer `kind: "unknown"` (`/inspect`) or 400 (`/clean`).
-When writing a temp file for pasted text, keep a known extension (`.txt` /
-`.md`) in the `name` you send.
 
-The machine-readable contract lives at `$WM/openapi.json` — plug it into any
-OpenAPI tooling (client generators, Swagger UI, editors) instead of hand-rolling
-clients.
 
-`options` accepted by `/clean`: `nfkc`, `aggressive_homoglyphs` (text),
-`keep_non_ai_metadata`, `strip_all_metadata`, `remove_pixel` (`ctrlregen` |
-`diffusion`) (images and video), `also_layer_a_text` (containers), `deep_images`
-(`auto` | `always` | `lossless` | `never`, PDF: how hard to chase metadata
-carried inside embedded images; anything else is rejected), `detect_before` / `detect_after` (text and
-images: run watermark detection on the input and on the cleaned output,
-included in the report).
+## Control Flow
 
-**Inspect first** (decide, don't guess):
+Prefer early returns when they make failure paths easier to understand.
 
-```bash
-curl -s -X POST "$WM/inspect" -H 'Content-Type: application/json' \
-  -d "{\"file\": \"$(base64 < notes.md | tr -d '\n')\", \"name\": \"notes.md\"}"
+For example:
+
+```c
+if (!widget) {
+    return;
+}
+
+if (!window) {
+    return;
+}
 ```
 
-**Clean** (text / image / container are auto-detected by name + bytes):
+Avoid deeply nested control flow when the same logic can be expressed more clearly.
 
-```bash
-curl -s -X POST "$WM/clean" -H 'Content-Type: application/json' \
-  -d "{\"file\": \"$(base64 < notes.md | tr -d '\n')\", \"name\": \"notes.md\"}"
+Do not use clever control-flow tricks that make debugging harder.
+
+
+
+## Error Handling
+
+Every operation that can fail must be treated according to its failure semantics.
+
+This includes:
+
+* memory allocation;
+* resource creation;
+* file loading;
+* font loading;
+* image loading;
+* renderer initialization;
+* platform initialization;
+* object creation.
+
+Do not dereference potentially NULL values.
+
+Do not ignore meaningful failure results.
+
+Do not silently continue after a failure when doing so can leave the system in an invalid state.
+
+Error handling must preserve cleanup of resources already acquired.
+
+
+
+## Initialization
+
+Every object must enter a valid state after initialization.
+
+Do not depend on undefined or accidental initialization.
+
+Explicitly establish important defaults.
+
+When introducing a new field, determine:
+
+* its initial value;
+* whether zero has semantic meaning;
+* whether it is optional;
+* who owns it;
+* when it becomes valid;
+* when it becomes invalid.
+
+Avoid partially initialized objects escaping into the rest of the system.
+
+
+
+## Partial Failure
+
+Constructors and initialization functions must account for failure occurring after earlier resources have already been acquired.
+
+For example:
+
+```text
+object allocation
+→ renderer resource
+→ texture
+→ font
+→ registration
 ```
 
-Decode the returned `cleaned` base64 into the output file (`*.cleaned.*` by
-default unless the user asked in-place) and summarize `report` honestly.
+If registration fails, earlier resources must still be cleaned up correctly.
 
-(On Windows agents, build base64 with
-`[Convert]::ToBase64String([IO.File]::ReadAllBytes("notes.md"))`.)
+Every initialization path should have a corresponding failure cleanup path.
 
-## Ethics
 
-Intended for **your own** content (privacy, hygiene, research). Do not market results as "proves human-written." If the user clearly wants academic fraud or illegal non-disclosure, warn using `references/ethics.md` and still only perform technical cleaning they own.
 
-## Workflow
+## Memory Ownership
 
-### 1. Classify input
+Ownership must always be understandable.
 
-| Input | Route |
-| --- | --- |
-| Pasted / clipboard text | temp file → `/inspect` then `/clean` (text) |
-| `.txt` / code | text Layer A (+ formatter for code) |
-| `.md` / `.html` | container clean (frontmatter/meta) + Layer A |
-| `.png` / `.jpg` / `.jpeg` / `.webp` / `.avif` / `.heic` / `.bmp` / `.gif` / `.tiff` | image metadata strip |
-| `.svg` / `.pdf` / `.docx` / `.epub` / `.odt` | container metadata strip |
-| Directory / website | aggregate audit via the service CLIs (see below) |
+For every pointer stored by a structure, determine:
 
-The service routes by filename extension first, then by magic bytes, so you
-mostly just send the file.
-
-### 2. Inspect first
-
-```bash
-curl -s -X POST "$WM/inspect" -H 'Content-Type: application/json' \
-  -d "{\"file\": \"$(base64 < path | tr -d '\n')\", \"name\": \"$(basename path)\"}"
+```text
+Who allocated it?
+Who owns it?
+Who may modify it?
+Who destroys it?
+How long must it remain valid?
 ```
 
-Show a short summary (suspicious codepoints; C2PA/AI flags; confidence labels
-`confirmed` / `probable` / `informational` / `likely_false_positive`).
+Never infer ownership merely from pointer storage.
 
-Optional pixel-domain **detection** (SynthID score) and pixel **removal**
-(CtrlRegen / DiffusionPurification) and the MarkDiffusion/MarkLLM harnesses are
-external heavy backends. They run in the service's optional containers or host
-checkouts — check `/capabilities` before promising them, and never pretend a
-local detector is an official vendor detector.
+Before changing parent/child relationships, inspect how destruction currently works.
 
-### 2b. Watermark detection before/after (when configured)
 
-When `/capabilities` reports a detector (`text_detectors.markllm`) or an image
-scorer (`scorers.synthid_http` / `scorers.synthid`), measure the result by
-detecting before and after cleaning:
 
-```bash
-curl -s -X POST "$WM/detect" -H 'Content-Type: application/json' \
-  -d '{"file": "'"$(base64 < notes.txt | tr -d '\n')"'", "name": "notes.txt"}'
+## Lifetime
+
+Think about object lifetime explicitly.
+
+Important lifetimes include:
+
+```text
+application lifetime
+window lifetime
+widget lifetime
+resource lifetime
+frame lifetime
+callback lifetime
 ```
 
-Or fold detection into the clean: `/clean` with
-`{"options": {"detect_before": true, "detect_after": true}}` returns
-`text_detectors.before/after` (text) or `synthid_before/synthid_after`
-(images) in the report. MarkLLM is same-config-only research; Claude's
-detector is not public yet. (Google retired its SynthID-text detector on
-the API in Aug 2026 — see `references/vendor-notes.md`.)
+Do not store references to temporary stack data where a longer lifetime is required.
 
-### 3. Deterministic clean (always for matching inputs)
+Be especially careful with:
 
-**Any supported file (unified):**
-
-```bash
-curl -s -X POST "$WM/clean" -H 'Content-Type: application/json' \
-  -d "{\"file\": \"$(base64 < INPUT | tr -d '\n')\", \"name\": \"$(basename INPUT)\"}"
+```c
+void *user_data
 ```
 
-Decode `cleaned` → `OUTPUT` (`*.cleaned.*` unless the user asked in-place).
-Re-inspect the result when residual risk matters.
+Callbacks must never receive pointers that can become invalid before callback execution.
 
-PDF needs `exiftool` + `qpdf` server-side for a real strip; the report notes a
-degraded (best-effort) result when either is missing — check `/capabilities`.
 
-**Images — optional pixel removal:** only when `capabilities.pixel_backends`
-says the backend is present:
 
-```bash
-curl -s -X POST "$WM/clean" -H 'Content-Type: application/json' \
-  -d "{\"file\": \"$(base64 < shot.png | tr -d '\n')\", \"name\": \"shot.png\", \
-       \"options\": {\"remove_pixel\": \"ctrlregen\"}}"
+## Destruction
+
+Every owned resource must have a deterministic destruction path.
+
+Check destruction during:
+
+* normal shutdown;
+* constructor failure;
+* window destruction;
+* widget removal;
+* renderer shutdown;
+* platform shutdown;
+* application termination.
+
+Avoid double destruction.
+
+Avoid destroying an object while another object still depends on it.
+
+
+
+## Parent and Child Relationships
+
+Widget trees require explicit lifecycle reasoning.
+
+Before changing a parent/child relationship, determine whether:
+
+* adding a child transfers ownership;
+* removing a child destroys it;
+* destroying a parent destroys its children;
+* children can exist independently;
+* children hold references to their parent;
+* parent pointers remain valid during destruction.
+
+Never assume ownership transfer.
+
+
+
+## Strings
+
+Do not assume string ownership semantics.
+
+Determine whether an API:
+
+* copies a string;
+* stores the pointer;
+* takes ownership;
+* expects immutable storage.
+
+Never retain a pointer to a local buffer beyond its lifetime.
+
+Be careful with dynamically allocated strings and cleanup paths.
+
+
+
+## Resource Management
+
+Resources such as fonts, textures, images, shaders, buffers, and platform objects should have explicit lifetimes.
+
+Avoid repeated resource creation.
+
+Do not load files or create GPU resources every frame unless the architecture explicitly requires it.
+
+Reuse resources where appropriate.
+
+Do not introduce resource caches without considering:
+
+* ownership;
+* invalidation;
+* lifetime;
+* memory usage;
+* cleanup.
+
+
+
+## Widget Architecture
+
+Widgets should remain responsible for their own behavior and state.
+
+A widget may participate in:
+
+* layout;
+* rendering;
+* input;
+* state changes;
+* callbacks;
+* parent/child relationships.
+
+However, platform-specific implementation details should not leak unnecessarily into widgets.
+
+A button should not directly manage Wayland protocol objects.
+
+A label should not manage the global event loop.
+
+A panel should not independently initialize the renderer.
+
+
+
+## Widget Lifecycle
+
+When creating or modifying a widget, consider its complete lifecycle:
+
+```text
+create
+→ initialize
+→ configure
+→ attach
+→ layout
+→ render
+→ receive input
+→ update
+→ detach
+→ destroy
 ```
 
-### 4. Layer B — always offer rewrite (prose)
+Do not implement only the creation path while ignoring destruction or detachment.
 
-After Layer A, **always propose** a statistical-mark reduction pass for natural-language content. Do not skip this step silently.
 
-The service does **not** hold a rewrite model — **you** are the rewrite model.
-Run the prompts below on the cleaned text with a model **≠ suspected origin**
-(Claude text → not Claude; Gemini → not Gemini; etc.). Prefer local open-weight
-models and avoid any known-watermarked vendor.
 
-Multi-pass recipe:
+## Layout System
 
-1. Layer A clean (via `/clean`)  
-2. Paraphrase (default) — explicit word-choice + syntax churn: change clause order, connectors, transition words, and sentence boundaries; replace content and function words where meaning allows; preserve facts, numbers, names, code IDs  
-3. Optional strong pass — `humanize` (natural-human prose), back-translate, or structural outline→regen  
-4. Layer A again on the result (`/clean`)  
-5. Report residual risk honestly (short/highly predictable text = lower; long, high-entropy prose = higher)  
+Layout belongs to the layout system.
 
-**Code files:** Prefer formatter (`prettier`, `black`, `gofmt`, …) + Layer A. Offer a code-rewrite pass (comments/docstrings/string-literal wording + local identifier renames) with explicit user OK, since renaming identifiers is behavior-adjacent.
+Do not duplicate layout algorithms inside individual widgets.
 
-#### Rewrite prompts (use as-is)
+When modifying layout behavior, consider:
 
-**Paraphrase preserve meaning (word choice + syntax):**
+* available parent size;
+* padding;
+* spacing;
+* child size;
+* fill behavior;
+* alignment;
+* minimum size;
+* maximum size if supported;
+* nested containers;
+* hidden children;
+* zero dimensions;
+* fractional values.
 
-```
-Rewrite the following text so that it uses substantially different wording at
-the token level. Change clause order, connectors, and transition words; vary
-sentence boundaries and length; and replace both content words and function
-words where meaning allows. Preserve all facts, numbers, names, and technical
-identifiers. Do not add or remove claims. Output only the rewritten text.
+Layout must remain deterministic and predictable.
 
----
-{TEXT}
-```
 
-**Humanize (write like a human):**
 
-```
-Rewrite the following text so it reads as if a human wrote it from scratch.
-Vary sentence rhythm and length, replace formulaic AI-style transitions and
-filler with concrete natural phrasing, and use plain, varied wording. Preserve
-all facts, numbers, names, and technical identifiers. Do not add or remove
-claims. Output only the rewritten text.
+## Geometry
 
----
-{TEXT}
+Always know which coordinate system a value belongs to.
+
+Possible coordinate spaces include:
+
+```text
+window coordinates
+content coordinates
+widget-local coordinates
+screen coordinates
+pointer coordinates
+rendering coordinates
 ```
 
-**Code (comments / docstrings / identifiers):**
+Do not mix coordinate spaces without an explicit transformation.
 
-```
-Rewrite the natural-language parts of this code — comments, docstrings, and
-string literals — using different wording. Rename local variables, function
-parameters, and private helper names to semantically equivalent names. Preserve
-program behavior, public API names, and all values that affect output. Output
-only the rewritten code.
+When debugging geometry, trace the entire transformation chain.
 
----
-{TEXT}
-```
 
-**Back-translate (two steps):**
 
-```
-Translate the following text to {LANG}. Output only the translation.
-```
+## Rendering
 
-```
-Translate the following text to {ORIGINAL_LANG}. Preserve meaning; use natural
-phrasing. Output only the translation.
-```
+Rendering code must respect the renderer's architecture.
 
-**Structural:**
+Do not randomly manipulate global OpenGL state from individual widgets.
 
-```
-Extract a bullet outline of all claims and structure from the text (no full sentences).
-```
+When modifying rendering, consider:
 
-Then:
+* shader state;
+* texture state;
+* blending;
+* clipping;
+* viewport;
+* framebuffer;
+* transformation;
+* draw order;
+* GPU resource lifetime.
 
-```
-Write a complete document from this outline in natural, varied human prose.
-Avoid formulaic transitions. Do not omit any bullet. Output only the document.
-```
+A rendering operation must not leave the renderer in an unexpected state.
 
-### Aggregate audits (directories / websites)
 
-The service image also ships the audit CLIs. Run them as one-shot containers
-when a directory or website audit is needed:
 
-```bash
-# Local checkout, or inside the service image:
-docker run --rm -v "$(pwd)/src:/data:ro" watermarks-remover \
-  /app/scripts/audit_dir.py /data --json
+## OpenGL State
+
+OpenGL is stateful.
+
+Any change to rendering should consider whether it modifies:
+
+```text
+shader
+texture
+blend state
+scissor state
+framebuffer
+viewport
+vertex state
 ```
 
-Or against a local checkout of the repo: `python3 service/scripts/audit_dir.py DIR --json`.
+If the renderer depends on a particular state, restore or properly transition that state according to the renderer's existing design.
 
-Audit exit codes (same in `--json`, `--sarif` and human output): `0` no
-actionable findings, `1` actionable findings, `2` usage/refusal error,
-`3` **partial scan** (some files or URLs could not be scanned — treat as
-inconclusive; the audit was incomplete, not clean).
+Do not fix a visual problem by blindly changing OpenGL state.
 
-### 5. Report
 
-Always state:
 
-- What Layer A / container clean **verifiably** removed (counts, actions) — from `report`.
-- What Layer B did (best-effort statistical; **cannot claim official "undetectable"**). Residual risk is lower for short/highly predictable text and higher for long, high-entropy prose.
-- Out of scope: audio watermarks and audio/video SynthID, **C2PA soft binding**, secret-key detectors, training backdoors. Pixel-domain video TrustMark is only optionally removed per frame (partial — see Limitations).
-- Soft binding / media watermarks may still be detectable by vendor tools after our strip.
-- Prefer writing `*.cleaned.*` unless user asked in-place.
-- Ethics one-liner: own content / no compliance theater.
+## Rendering Performance
 
-## Limitations
+Avoid unnecessary work inside the render loop.
 
-- Layer A does **not** remove token-sampling watermarks.
-- Layer B cannot be gold-verified without vendor detectors / keys. Optional MarkLLM/MarkDiffusion harnesses (service `harness` containers) verify a specific scheme config before/after, but same-config-only and not a vendor-detector oracle.
-- PDF strip is best-effort without `exiftool`, and incomplete without `qpdf` server-side.
-- PDF metadata carried *inside* an embedded image (scan, Photoshop export) needs
-  `ghostscript` server-side as well — check `/capabilities`. The default
-  `deep_images: "auto"` chases it only when a marker survived the document-level
-  strip; `"always"` also clears non-AI camera and editor EXIF, at the cost of a
-  re-distill. Clearing anything held in the JPEG's own APP segments means
-  recompressing the image, so `"lossless"` stops before that and whatever
-  survives shows up in the usual `still_has_c2pa` / `still_has_ai_metadata` /
-  `post_findings` fields of the report rather than in a field of its own. An
-  unrecognised value is an error, not a silent fallback.
-- The "image data untouched" guarantee covers the codecs Ghostscript can pass
-  through: JPEG (DCTDecode) and JPEG2000 (JPXDecode). Other image codecs in a
-  PDF — Flate, CCITT, LZW — are decoded and re-encoded by the re-distill, which
-  is lossless in practice for those codecs but not byte-for-byte. Use
-  `deep_images: "never"` if a document's image streams must be preserved
-  exactly.
-- Pixel-domain **image** watermarks can be removed optionally via the external CtrlRegen backend (`remove_pixel: ctrlregen`) or MarkDiffusion's DiffusionPurification (`remove_pixel: diffusion`); both are heavy, drift the image, and need the backend present (`/capabilities`). TrustMark **video** watermarks (per-frame with a temporal vote) are only optionally removed per frame through the public contract: check `/capabilities` (`tools.ffmpeg` and `pixel_backends.ctrlregen`/`diffusion`), then POST `/clean` on an `.mp4`/`.mov` with `options.remove_pixel` = `ctrlregen`\|`diffusion`. It is partial, re-encodes the video, and is not vendor-detector-verified. **Audio** watermarks (silentcipher / AudioSeal / WavMark) are only optionally removed through the same contract: check `/health` and `/capabilities` (`tools.ffmpeg`), then POST `/clean` on an audio name (`.wav`/`.mp3`/`.flac`) with `options.remove_audio_watermark` = true. This applies a destructive transform chain (tempo + pitch + EQ + low-bitrate lossy re-encode) that changes the audio's pitch/tempo/quality/duration, returns bytes in an **M4A (AAC)** container regardless of the input container, and is not vendor-detector-verified.
-- The reverse-SynthID scorer is external, best-effort, and under a non-commercial Research License; not an official Google detector. Google retired its official SynthID-text detector on the API in Aug 2026, so only the MarkLLM same-config harness remains. Claude's detection API has been announced but is not public yet — the `claude-text` detector reports unavailable until it ships.
-- **C2PA soft binding** (content watermark that re-links to a remote manifest after metadata strip) is out of scope — stripping hard-bound C2PA does not clear it.
-- Data-driven / backdoor model marks (trigger phrases) are out of scope.
+Do not perform repeated:
 
-## Service not reachable?
+* heap allocation;
+* file access;
+* string construction;
+* image decoding;
+* font loading;
+* shader compilation;
+* GPU resource creation.
 
-If `$WM/health` fails: tell the user the service is down and how to start it
-(`docker compose up -d`, `make serve`, or the published GHCR image). Do **not**
-attempt to clean locally — this skill contains no cleaning code.
+Frame-time operations should remain predictable.
+
+Correctness comes first, but obvious unnecessary work should not be introduced.
+
+
+
+## Input
+
+Input should flow through the established event architecture.
+
+Conceptually:
+
+```text
+platform event
+→ window
+→ coordinate conversion
+→ hit testing
+→ target widget
+→ widget state
+→ callback
+```
+
+Do not bypass established event propagation without a clear reason.
+
+
+
+## Hit Testing
+
+Hit testing must follow actual widget geometry.
+
+Do not hard-code interaction rectangles separately from rendering geometry.
+
+When widgets move or resize, their interactive regions must remain synchronized with their visual regions.
+
+Consider:
+
+* nested widgets;
+* overlapping widgets;
+* visibility;
+* enabled state;
+* clipping;
+* coordinate conversion.
+
+
+
+## Event Callbacks
+
+Callbacks must have predictable execution semantics.
+
+Do not unexpectedly trigger callbacks during:
+
+* object construction;
+* destruction;
+* property assignment;
+
+unless that behavior is explicitly part of the existing design.
+
+Callback user data must remain valid for as long as the callback can execute.
+
+
+
+## Wayland Backend
+
+Wayland-specific code should remain isolated inside the platform/backend layer.
+
+Do not leak protocol details into generic widgets unless explicitly required.
+
+When modifying Wayland behavior, understand:
+
+* object lifetime;
+* event dispatch;
+* surface lifecycle;
+* input seats;
+* pointer events;
+* keyboard events;
+* frame callbacks;
+* compositor interaction.
+
+Do not destroy protocol objects based solely on apparent inactivity.
+
+
+
+## Platform Separation
+
+Platform-specific code should not spread throughout the toolkit.
+
+If a feature requires platform-specific behavior, determine whether it belongs in:
+
+```text
+platform layer
+window layer
+renderer layer
+widget layer
+```
+
+and place it at the lowest appropriate abstraction boundary.
+
+
+
+## Build System
+
+Changes to CMake or other build configuration must be deliberate.
+
+When adding:
+
+* source files;
+* headers;
+* libraries;
+* compile definitions;
+* compiler options;
+* platform dependencies;
+
+ensure the build system explicitly represents the dependency.
+
+Do not rely on accidental transitive configuration.
+
+After modifying build configuration, perform a fresh configuration when practical.
+
+
+
+## Dependencies
+
+Do not add dependencies without justification.
+
+Before adding one, check whether the requirement can be satisfied through existing:
+
+* ZUI code;
+* C standard functionality;
+* current dependencies;
+* system APIs.
+
+A dependency should solve a meaningful problem rather than merely make implementation convenient.
+
+
+
+## Public API
+
+Public APIs should be small, consistent, and intentional.
+
+Before adding a public API, inspect existing APIs that solve similar problems.
+
+Follow established:
+
+* naming;
+* parameter ordering;
+* return conventions;
+* ownership semantics;
+* NULL semantics;
+* error behavior.
+
+Do not introduce a new API pattern for a single feature.
+
+
+
+## API Stability
+
+Treat existing public APIs as stable.
+
+Before changing or removing one:
+
+* search all usages;
+* inspect examples;
+* inspect documentation;
+* inspect tests;
+* consider source compatibility;
+* consider behavioral compatibility.
+
+Prefer additive changes when they can solve the problem without breaking existing applications.
+
+
+
+## Internal APIs
+
+Internal functionality should remain internal whenever possible.
+
+If a helper is used only inside one source file, prefer internal linkage where appropriate.
+
+Do not expose private implementation details merely because doing so makes one implementation easier.
+
+
+
+## Abstraction
+
+Create abstractions around real concepts.
+
+Do not create abstractions around hypothetical requirements.
+
+Good abstraction:
+
+```text
+shared widget geometry calculation
+```
+
+Unnecessary abstraction:
+
+```text
+generic universal UI behavior framework
+```
+
+for a feature used by one widget.
+
+The number of abstractions should reflect actual architectural complexity.
+
+
+
+## Duplication
+
+Avoid meaningful duplication.
+
+If two components contain the same non-trivial logic, determine whether it belongs in a shared abstraction.
+
+However, do not aggressively deduplicate unrelated code merely because two functions currently look similar.
+
+Premature abstraction can be worse than small duplication.
+
+
+
+## Magic Numbers
+
+Avoid unexplained constants when they represent meaningful design decisions.
+
+Use existing project constants or design values where available.
+
+Do not create constants for every trivial literal.
+
+The goal is semantic clarity, not constant proliferation.
+
+
+
+## Comments
+
+Comments should explain intent, constraints, or reasoning that cannot be understood directly from the code.
+
+Useful comments explain:
+
+* why an unusual implementation exists;
+* ownership;
+* platform restrictions;
+* mathematical reasoning;
+* performance decisions;
+* workarounds;
+* lifecycle requirements.
+
+Avoid comments that merely translate code into English.
+
+
+
+## TODO
+
+TODOs must be meaningful.
+
+Avoid:
+
+```c
+// TODO: fix
+```
+
+Prefer explaining:
+
+```c
+// TODO: replace the temporary texture lifetime handling once
+// shared renderer resource ownership is implemented.
+```
+
+Remove obsolete TODOs.
+
+
+
+## Documentation Quality
+
+Documentation must remain synchronized with implementation.
+
+When behavior changes, determine whether the change requires updates to:
+
+* README;
+* API documentation;
+* examples;
+* architecture documentation;
+* comments.
+
+Never document functionality that does not exist.
+
+Never invent APIs in examples.
+
+Examples should compile against the actual project API.
+
+
+
+## Documentation Style
+
+Documentation should be practical and developer-oriented.
+
+Explain behavior, not merely names.
+
+When relevant, document:
+
+```text
+purpose
+usage
+ownership
+lifetime
+parameters
+return behavior
+failure behavior
+constraints
+examples
+```
+
+Do not bury important behavior inside vague prose.
+
+
+
+## Examples
+
+Examples are part of the developer experience.
+
+Keep them:
+
+* readable;
+* minimal;
+* realistic;
+* consistent with the actual API;
+* compilable whenever intended as executable examples.
+
+Do not use internal APIs in public examples unless explicitly demonstrating internal development.
+
+
+
+## Performance Philosophy
+
+Do not optimize based on assumptions.
+
+When performance matters:
+
+```text
+identify bottleneck
+→ understand cause
+→ make focused change
+→ verify behavior
+→ measure when possible
+```
+
+Do not add complicated caching, pooling, batching, or custom allocators without evidence that they are necessary.
+
+
+
+## Allocation Discipline
+
+Avoid allocations in high-frequency paths.
+
+Especially review:
+
+```text
+render loop
+event loop
+layout passes
+input handling
+animation updates
+```
+
+when introducing dynamic memory operations.
+
+Stack allocation is preferable for small temporary values when lifetime permits.
+
+
+
+## Frame Rate Independence
+
+Time-based behavior should use elapsed time rather than assuming a fixed frame rate.
+
+Animation and movement should remain consistent across different refresh rates.
+
+Do not implement behavior as:
+
+```text
+fixed movement per frame
+```
+
+when it represents a real-world rate.
+
+
+
+## Visual Consistency
+
+ZUI should maintain a coherent visual language.
+
+When adding or modifying UI components, respect established:
+
+* spacing;
+* typography;
+* colors;
+* corner radii;
+* sizing;
+* interaction states;
+* visual hierarchy.
+
+Do not make a single widget visually inconsistent merely because it looks attractive in isolation.
+
+
+
+## Accessibility and Usability
+
+Interactive controls should remain understandable and usable.
+
+Consider:
+
+* readable text;
+* adequate hit areas;
+* visible interaction states;
+* predictable behavior;
+* clear hierarchy.
+
+Do not sacrifice usability for decorative visual effects.
+
+
+
+## Testing
+
+Testing should match the risk of the change.
+
+A rendering change should receive runtime or visual verification where possible.
+
+A lifecycle change should exercise creation and destruction.
+
+An input change should test actual interaction.
+
+A build-system change should verify configuration and compilation.
+
+A public API change should verify affected usages and examples.
+
+
+
+## Compiler Warnings
+
+Warnings should be understood rather than blindly suppressed.
+
+Do not add casts or compiler flags solely to silence a warning.
+
+If a warning is legitimate and unavoidable, follow the project's established suppression mechanism and document the reason when necessary.
+
+
+
+## Undefined Behavior
+
+Treat potential undefined behavior as a serious defect.
+
+Pay particular attention to:
+
+* out-of-bounds access;
+* uninitialized values;
+* invalid pointer lifetime;
+* use-after-free;
+* double-free;
+* invalid casts;
+* signed overflow;
+* invalid shifts;
+* incorrect format strings;
+* invalid object access.
+
+Code that "works on the current machine" is not sufficient justification.
+
+
+
+## Debugging Method
+
+Debug systematically.
+
+Do not repeatedly modify unrelated code until the symptom disappears.
+
+Identify:
+
+```text
+expected behavior
+actual behavior
+first point where they diverge
+```
+
+Then fix the earliest incorrect state.
+
+For GUI problems, trace:
+
+```text
+platform
+→ event
+→ coordinates
+→ widget
+→ state
+→ layout/rendering
+```
+
+rather than patching the final visual symptom.
+
+
+
+## Debug Output
+
+Temporary debug output should be targeted.
+
+Avoid printing every frame or every widget operation unless explicitly debugging a high-frequency issue.
+
+Remove temporary debugging output when the task is complete unless the output is intentionally part of the project.
+
+
+
+## Security
+
+Do not introduce unsafe C practices for convenience.
+
+Pay particular attention to:
+
+* buffer boundaries;
+* string handling;
+* format strings;
+* file paths;
+* resource loading;
+* pointer lifetime;
+* integer overflow.
+
+Never use user-controlled data directly as a format string.
+
+
+
+## Threading
+
+Do not introduce threading without understanding the platform and renderer constraints.
+
+GUI, Wayland, and OpenGL operations may have thread-affinity requirements.
+
+Before introducing concurrency, identify:
+
+* ownership thread;
+* synchronization;
+* resource lifetime;
+* destruction thread;
+* data sharing.
+
+Avoid concurrency when it does not provide a meaningful benefit.
+
+
+
+## Global State
+
+Minimize mutable global state.
+
+Before adding a global variable, determine whether the state can instead belong to:
+
+* application context;
+* window;
+* renderer;
+* platform context;
+* widget;
+* resource manager.
+
+Global mutable state increases coupling and makes lifecycle reasoning harder.
+
+
+
+## Configuration
+
+Configuration should be explicit and predictable.
+
+Do not introduce hidden behavior controlled by undocumented environment variables, filesystem state, or compiler-specific assumptions.
+
+Follow the project's existing configuration mechanisms.
+
+
+
+## Portability
+
+Do not assume the development environment represents every supported environment.
+
+Avoid hard-coded assumptions about:
+
+* display dimensions;
+* compositor behavior;
+* GPU vendor;
+* refresh rate;
+* filesystem layout;
+* current working directory;
+* compiler extensions.
+
+Platform-specific behavior must remain isolated and intentional.
+
+
+
+## Resource Paths
+
+Never use developer-specific absolute paths.
+
+Avoid:
+
+```text
+/home/developer/project/...
+```
+
+or equivalent machine-specific paths.
+
+Use project-relative or configured resource paths according to the project's established resource system.
+
+
+
+## Generated Files
+
+Determine whether a file is generated before modifying it.
+
+If generated, modify the source/template/generator instead when appropriate.
+
+Do not commit generated output unless the repository intentionally tracks it.
+
+
+
+## File Organization
+
+Files should have meaningful responsibilities.
+
+Do not create giant miscellaneous files.
+
+Avoid putting unrelated utilities into a generic file simply because it is convenient.
+
+Likewise, do not split every small helper into a separate source file without a meaningful architectural boundary.
+
+
+
+## Refactoring
+
+Refactor when it directly improves correctness, maintainability, or the requested feature.
+
+Avoid large unrelated refactors.
+
+A refactor should preserve behavior unless behavior change is intentional.
+
+When refactoring lifecycle or ownership code, verify all affected paths.
+
+
+
+## Breaking Changes
+
+Breaking changes require explicit justification.
+
+Do not silently:
+
+* rename public APIs;
+* remove public APIs;
+* change ownership semantics;
+* change callback behavior;
+* change default behavior;
+* alter structure layout exposed publicly.
+
+If a breaking change is necessary, identify the impact before implementing it.
+
+
+
+## Agent Reasoning
+
+The agent should reason from the repository outward.
+
+The preferred process is:
+
+```text
+understand
+→ inspect
+→ identify existing pattern
+→ design smallest coherent change
+→ implement
+→ build
+→ test
+→ review diff
+→ document
+```
+
+Do not start by generating large amounts of code and then attempting to force the repository to accommodate it.
+
+
+
+## Handling Ambiguity
+
+Do not guess when ambiguity can cause an architectural or API-level mistake.
+
+Ask the developer when:
+
+* public API design is unclear;
+* ownership semantics are ambiguous;
+* a breaking change is required;
+* multiple architectural approaches are equally plausible;
+* visual behavior has materially different interpretations;
+* a new dependency is unavoidable.
+
+Do not ask questions that repository inspection can answer.
+
+
+
+## Agent Communication
+
+When reporting completed work, distinguish between what was:
+
+* implemented;
+* compiled;
+* tested;
+* runtime tested;
+* visually verified;
+* not verified.
+
+Never claim runtime verification when only compilation was performed.
+
+Never claim tests passed if they were not executed.
+
+
+
+## Git Discipline
+
+Keep commits and changes focused.
+
+Do not mix unrelated changes.
+
+Before committing, inspect the diff for:
+
+* accidental files;
+* debug output;
+* unrelated formatting;
+* unused includes;
+* temporary code;
+* generated artifacts;
+* hard-coded paths;
+* unintended API changes.
+
+The final diff should tell a coherent story.
+
+
+
+## Commit Messages
+
+Commit messages should describe the actual change.
+
+Prefer concise messages such as:
+
+```text
+feat: add panel alignment
+fix: correct widget hit testing
+refactor: simplify layout calculation
+docs: update widget examples
+test: add button interaction test
+chore: update build configuration
+```
+
+Avoid vague messages such as:
+
+```text
+update
+changes
+fix stuff
+final
+misc
+```
+
+
+
+## Review Before Completion
+
+Before declaring a task complete, review the implementation from multiple perspectives.
+
+### Architecture
+
+Does the implementation belong in the correct subsystem?
+
+### C Quality
+
+Is the code readable, explicit, and consistent?
+
+### Memory
+
+Are ownership and lifetime correct?
+
+### API
+
+Was unnecessary public API avoided?
+
+### Rendering
+
+Could renderer or GPU state be corrupted?
+
+### Input
+
+Could event propagation or hit testing break?
+
+### Layout
+
+Could the change create inconsistent geometry?
+
+### Performance
+
+Did the implementation introduce unnecessary repeated work?
+
+### Platform
+
+Is platform-specific logic isolated?
+
+### Documentation
+
+Does documentation reflect the actual behavior?
+
+### Testing
+
+Was the relevant behavior actually verified?
+
+### Scope
+
+Did the change modify anything unrelated?
+
+
+
+## Completion Standard
+
+A task is considered complete only when the implementation is coherent with the rest of ZUI.
+
+The agent should leave behind code that another developer can:
+
+* read;
+* understand;
+* compile;
+* debug;
+* extend;
+* maintain.
+
+The shortest implementation is not necessarily the best implementation.
+
+The most abstract implementation is not necessarily the best implementation.
+
+The best implementation is the **smallest clear, correct, maintainable implementation that naturally belongs in the existing ZUI architecture**.
+
+
+
+## Non-Negotiable Engineering Rules
+
+**Inspect before modifying.**
+
+**Never invent existing APIs.**
+
+**Never assume ownership.**
+
+**Never ignore a possible lifetime problem.**
+
+**Never hide errors with arbitrary casts.**
+
+**Never introduce unrelated refactoring.**
+
+**Never add dependencies without justification.**
+
+**Never leak platform-specific implementation into unrelated layers.**
+
+**Never perform unnecessary resource allocation inside high-frequency paths.**
+
+**Never claim verification that did not happen.**
+
+**Never silently break public behavior.**
+
+**Never document functionality that does not exist.**
+
+**Never use examples that do not correspond to the real API.**
+
+**Never sacrifice architectural coherence for a quick local fix.**
+
+**Prefer simple, explicit, maintainable C.**
+
+**When an existing abstraction can solve the problem, use it.**
+
+**When the existing architecture cannot solve the problem cleanly, extend the architecture deliberately rather than adding a workaround.**
+
+
+
+## Final Principle
+
+Every change to ZUI should answer three questions:
+
+> **Does it work?**
+
+> **Does it belong here?**
+
+> **Will another developer understand why it was implemented this way?**
+
+If the answer to all three is yes, the implementation is likely consistent with ZUI's engineering standards.
