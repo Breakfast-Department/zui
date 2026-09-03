@@ -23,20 +23,6 @@ typedef struct ZuiTexture {
     int height;
 } ZuiTexture;
 
-typedef struct ZuiWindowStyle {
-    ZuiColor bg_color;
-    ZuiColor border_color;
-    ZuiColor titlebar_color;
-    float border_width;
-    float radius_tl;
-    float radius_tr;
-    float radius_br;
-    float radius_bl;
-    float titlebar_height;
-    float curve_intensity;
-    bool active;
-} ZuiWindowStyle;
-
 typedef struct ZuiRenderer {
     GLuint rect_shader;
     GLuint rect_vao;
@@ -47,10 +33,6 @@ typedef struct ZuiRenderer {
     GLuint tex_vbo;
 
     GLuint glyph_shader;
-
-    GLuint window_shader;
-    GLuint window_vao;
-    GLuint window_vbo;
 
     int viewport_width;
     int viewport_height;
@@ -87,9 +69,6 @@ void zui_renderer_draw_glyph(ZuiRenderer *renderer, ZuiTexture *atlas,
 
 void zui_renderer_push_clip(ZuiRenderer *renderer, ZuiRect rect, float radius);
 void zui_renderer_pop_clip(ZuiRenderer *renderer);
-
-void zui_renderer_draw_window(ZuiRenderer *renderer, ZuiRect rect,
-                               const ZuiWindowStyle *style);
 
 #define ZUI_RECT(x, y, w, h) ((ZuiRect){(x), (y), (w), (h)})
 

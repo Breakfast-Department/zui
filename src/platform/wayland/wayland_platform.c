@@ -8,7 +8,42 @@
 #include <linux/input-event-codes.h>
 
 static char g_cursor_theme[256] = {0};
-static int g_cursor_size = 24;
+static int g_cursor_size = 0;
+
+static void read_gsettings_cursor(void)
+{
+    FILE *p;
+    char buf[64];
+
+    if (g_cursor_size <= 0) {
+        p = popen("gsettings get org.gnome.desktop.interface cursor-size 2>/dev/null", "r");
+        if (p) {
+            if (fgets(buf, sizeof(buf), p)) {
+                int size = atoi(buf);
+                if (size > 0) g_cursor_size = size;
+            }
+            pclose(p);
+        }
+    }
+
+    if (!g_cursor_theme[0]) {
+        p = popen("gsettings get org.gnome.desktop.interface cursor-theme 2>/dev/null", "r");
+        if (p) {
+            if (fgets(buf, sizeof(buf), p)) {
+                char *start = strchr(buf, '\'');
+                if (start) {
+                    start++;
+                    char *end = strchr(start, '\'');
+                    if (end) {
+                        *end = 0;
+                        strncpy(g_cursor_theme, start, sizeof(g_cursor_theme) - 1);
+                    }
+                }
+            }
+            pclose(p);
+        }
+    }
+}
 
 static void read_cursor_config(void)
 {
@@ -64,6 +99,10 @@ static void read_cursor_config(void)
         }
         fclose(f);
     }
+
+    if (g_cursor_theme[0] && g_cursor_size > 0) return;
+
+    read_gsettings_cursor();
 
     if (g_cursor_size <= 0) g_cursor_size = 24;
 }
@@ -416,12 +455,16 @@ static void xdg_toplevel_configure(void *data, struct xdg_toplevel *toplevel,
     ZuiWaylandWindow *wl_win = zui_window_get_wayland(window);
 
     bool maximized = false;
+    bool activated = false;
     uint32_t *state;
     wl_array_for_each(state, states) {
         if (*state == XDG_TOPLEVEL_STATE_MAXIMIZED)
             maximized = true;
+        if (*state == XDG_TOPLEVEL_STATE_ACTIVATED)
+            activated = true;
     }
     zui_window_set_maximized_state(window, maximized);
+    zui_window_set_active_state(window, activated);
 
     if (width > 0 && height > 0) {
         wl_win->pending_width = width;

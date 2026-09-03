@@ -11,8 +11,10 @@ typedef struct ZuiTitlebar ZuiTitlebar;
 typedef struct ZuiButton ZuiButton;
 typedef struct ZuiLabel ZuiLabel;
 typedef struct ZuiContainer ZuiContainer;
+typedef struct ZuiPanel ZuiPanel;
 
 #include <zui/color.h>
+#include <zui/layout.h>
 
 typedef struct ZuiPoint {
     float x, y;
@@ -36,18 +38,8 @@ typedef enum ZuiWidgetType {
     ZUI_WIDGET_LABEL,
     ZUI_WIDGET_ICON,
     ZUI_WIDGET_IMAGE,
+    ZUI_WIDGET_PANEL,
 } ZuiWidgetType;
-
-typedef enum ZuiLayoutDir {
-    ZUI_LAYOUT_HORIZONTAL,
-    ZUI_LAYOUT_VERTICAL,
-} ZuiLayoutDir;
-
-typedef enum ZuiAlign {
-    ZUI_ALIGN_START,
-    ZUI_ALIGN_CENTER,
-    ZUI_ALIGN_END,
-} ZuiAlign;
 
 typedef void (*ZuiClickCallback)(ZuiWidget *widget, void *user_data);
 typedef void (*ZuiDrawCallback)(ZuiWidget *widget, void *renderer);

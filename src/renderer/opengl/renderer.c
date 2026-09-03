@@ -137,15 +137,6 @@ bool zui_renderer_init(ZuiRenderer *renderer, const char *shader_path)
         return false;
     }
 
-    renderer->window_shader = load_shader_program(shader_path,
-                                                   "window.vert", "window.frag");
-    if (!renderer->window_shader) {
-        glDeleteProgram(renderer->glyph_shader);
-        glDeleteProgram(renderer->tex_shader);
-        glDeleteProgram(renderer->rect_shader);
-        return false;
-    }
-
     static const float quad_verts[] = {
         0.0f, 0.0f,
         1.0f, 0.0f,
@@ -190,27 +181,11 @@ bool zui_renderer_init(ZuiRenderer *renderer, const char *shader_path)
                           (void*)(2 * sizeof(float)));
 
     glBindVertexArray(0);
-
-    glGenVertexArrays(1, &renderer->window_vao);
-    glGenBuffers(1, &renderer->window_vbo);
-
-    glBindVertexArray(renderer->window_vao);
-    glBindBuffer(GL_ARRAY_BUFFER, renderer->window_vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(quad_verts), quad_verts, GL_STATIC_DRAW);
-
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-
-    glBindVertexArray(0);
-
     return true;
 }
 
 void zui_renderer_shutdown(ZuiRenderer *renderer)
 {
-    if (renderer->window_vbo) glDeleteBuffers(1, &renderer->window_vbo);
-    if (renderer->window_vao) glDeleteVertexArrays(1, &renderer->window_vao);
-    if (renderer->window_shader) glDeleteProgram(renderer->window_shader);
     if (renderer->glyph_shader) glDeleteProgram(renderer->glyph_shader);
     if (renderer->tex_vbo) glDeleteBuffers(1, &renderer->tex_vbo);
     if (renderer->tex_vao) glDeleteVertexArrays(1, &renderer->tex_vao);
@@ -438,64 +413,4 @@ void zui_renderer_pop_clip(ZuiRenderer *renderer)
     if (renderer->clip_stack_top >= 0) {
         renderer->clip_stack_top--;
     }
-}
-
-void zui_renderer_draw_window(ZuiRenderer *renderer, ZuiRect rect,
-                               const ZuiWindowStyle *style)
-{
-    glUseProgram(renderer->window_shader);
-    glBindVertexArray(renderer->window_vao);
-
-    GLint loc;
-
-    loc = glGetUniformLocation(renderer->window_shader, "u_resolution");
-    glUniform2f(loc, (float)renderer->viewport_width,
-                (float)renderer->viewport_height);
-
-    loc = glGetUniformLocation(renderer->window_shader, "u_rect_pos");
-    glUniform2f(loc, rect.x, rect.y);
-
-    loc = glGetUniformLocation(renderer->window_shader, "u_rect_size");
-    glUniform2f(loc, rect.w, rect.h);
-
-    loc = glGetUniformLocation(renderer->window_shader, "u_bg_color");
-    glUniform4f(loc, style->bg_color.r, style->bg_color.g,
-                style->bg_color.b, style->bg_color.a);
-
-    loc = glGetUniformLocation(renderer->window_shader, "u_border_color");
-    glUniform4f(loc, style->border_color.r, style->border_color.g,
-                style->border_color.b, style->border_color.a);
-
-    loc = glGetUniformLocation(renderer->window_shader, "u_titlebar_color");
-    glUniform4f(loc, style->titlebar_color.r, style->titlebar_color.g,
-                style->titlebar_color.b, style->titlebar_color.a);
-
-    loc = glGetUniformLocation(renderer->window_shader, "u_border_width");
-    glUniform1f(loc, style->border_width);
-
-    loc = glGetUniformLocation(renderer->window_shader, "u_radius_tl");
-    glUniform1f(loc, style->radius_tl);
-
-    loc = glGetUniformLocation(renderer->window_shader, "u_radius_tr");
-    glUniform1f(loc, style->radius_tr);
-
-    loc = glGetUniformLocation(renderer->window_shader, "u_radius_br");
-    glUniform1f(loc, style->radius_br);
-
-    loc = glGetUniformLocation(renderer->window_shader, "u_radius_bl");
-    glUniform1f(loc, style->radius_bl);
-
-    loc = glGetUniformLocation(renderer->window_shader, "u_titlebar_height");
-    glUniform1f(loc, style->titlebar_height);
-
-    loc = glGetUniformLocation(renderer->window_shader, "u_curve_intensity");
-    glUniform1f(loc, style->curve_intensity);
-
-    loc = glGetUniformLocation(renderer->window_shader, "u_active");
-    glUniform1i(loc, style->active ? 1 : 0);
-
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-
-    glBindVertexArray(0);
-    glUseProgram(0);
 }

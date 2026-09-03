@@ -29,4 +29,6 @@ struct ZuiFont {
 void zui_font_render_text(ZuiFont *font, ZuiRenderer *renderer,
                           float x, float y, const char *text, ZuiColor color);
 
+bool init_font(ZuiFont *font, const unsigned char *font_data, float size);
+
 #endif

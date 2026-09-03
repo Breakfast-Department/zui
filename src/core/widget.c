@@ -40,6 +40,7 @@ void zui_widget_add_child(ZuiWidget *parent, ZuiWidget *child)
 
     child->parent = parent;
     parent->children[parent->child_count++] = child;
+    zui_widget_invalidate(parent);
 }
 
 void zui_widget_remove_child(ZuiWidget *parent, ZuiWidget *child)
@@ -53,6 +54,7 @@ void zui_widget_remove_child(ZuiWidget *parent, ZuiWidget *child)
                 parent->children[j] = parent->children[j + 1];
             }
             parent->child_count--;
+            zui_widget_invalidate(parent);
             return;
         }
     }
@@ -110,9 +112,21 @@ void zui_widget_layout(ZuiWidget *widget)
 {
     if (!widget) return;
 
+    for (int i = 0; i < widget->child_count; i++) {
+        ZuiWidget *child = widget->children[i];
+        if (child->fill_width) {
+            child->preferred_size.width = widget->bounds.width;
+        }
+        if (child->fill_height) {
+            child->preferred_size.height = widget->bounds.height;
+        }
+    }
+
     if (widget->vtable && widget->vtable->layout) {
         widget->vtable->layout(widget);
     }
+
+    widget->needs_layout = false;
 
     for (int i = 0; i < widget->child_count; i++) {
         zui_widget_layout(widget->children[i]);
@@ -173,10 +187,35 @@ void zui_widget_set_padding(ZuiWidget *widget, float padding)
 {
     if (!widget) return;
     widget->padding = padding;
+    zui_widget_invalidate(widget);
 }
 
 void zui_widget_set_spacing(ZuiWidget *widget, float spacing)
 {
     if (!widget) return;
     widget->spacing = spacing;
+    zui_widget_invalidate(widget);
+}
+
+void zui_widget_set_fill(ZuiWidget *widget, bool fill_width, bool fill_height)
+{
+    if (!widget) return;
+    widget->fill_width = fill_width;
+    widget->fill_height = fill_height;
+    zui_widget_invalidate(widget);
+}
+
+void zui_widget_invalidate(ZuiWidget *widget)
+{
+    if (!widget) return;
+    widget->needs_layout = true;
+    if (widget->parent) {
+        zui_widget_invalidate(widget->parent);
+    }
+}
+
+bool zui_widget_needs_layout(ZuiWidget *widget)
+{
+    if (!widget) return false;
+    return widget->needs_layout;
 }

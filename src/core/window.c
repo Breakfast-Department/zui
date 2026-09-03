@@ -238,7 +238,7 @@ ZuiTitlebar *zui_titlebar_create(float height)
     if (!titlebar) return NULL;
 
     titlebar->height = height;
-    titlebar->base.padding = 8.0f;
+    titlebar->base.padding = 2.0f;
     titlebar->logo = NULL;
 
     titlebar->start_container = create_container();
@@ -302,7 +302,6 @@ ZuiWindow *zui_window_create(int width, int height, const char *title)
     window->width = width;
     window->height = height;
     window->corner_radius = 12.0f;
-    window->curve_intensity = 1.0f;
     window->running = true;
     window->active = true;
     window->needs_redraw = true;
@@ -311,8 +310,7 @@ ZuiWindow *zui_window_create(int width, int height, const char *title)
     window->base.bounds.height = (float)height;
     window->base.background = ZUI_COLOR(0, 0, 0, 0);
     window->base.corner_radius = 0;
-    window->background_color = ZUI_COLOR_HEX(0x1e1e1e);
-    window->titlebar_color = ZUI_COLOR_HEX(0x2a2a2a);
+    window->background_color = ZUI_COLOR_HEX(0x242424);
     window->border_color = ZUI_COLOR_HEX(0x3d3d3d);
     window->border_width = 1.0f;
 
@@ -349,8 +347,9 @@ ZuiWindow *zui_window_create(int width, int height, const char *title)
     window->content = create_container();
     if (window->content) {
         window->content->layout_dir = ZUI_LAYOUT_VERTICAL;
-        window->content->align = ZUI_ALIGN_CENTER;
-        window->content->padding = 16.0f;
+        window->content->align = ZUI_ALIGN_START;
+        window->content->padding = 0.0f;
+        window->content->spacing = 0.0f;
         zui_widget_add_child((ZuiWidget *)window, window->content);
     }
 
@@ -622,6 +621,14 @@ void zui_window_set_maximized_state(ZuiWindow *window, bool maximized)
     }
 }
 
+void zui_window_set_active_state(ZuiWindow *window, bool active)
+{
+    if (window && window->active != active) {
+        window->active = active;
+        window->needs_redraw = true;
+    }
+}
+
 void zui_window_mark_needs_redraw(ZuiWindow *window)
 {
     if (window) window->needs_redraw = true;
@@ -717,4 +724,23 @@ void zui_window_remove_logo(ZuiWindow *window)
     }
 
     window->needs_redraw = true;
+}
+
+void zui_window_set_background_color(ZuiWindow *window, ZuiColor color)
+{
+    if (!window) return;
+    window->background_color = color;
+    window->needs_redraw = true;
+}
+
+void zui_window_set_border_color(ZuiWindow *window, ZuiColor color)
+{
+    if (!window) return;
+    window->border_color = color;
+    window->needs_redraw = true;
+}
+
+bool zui_window_is_active(ZuiWindow *window)
+{
+    return window ? window->active : false;
 }

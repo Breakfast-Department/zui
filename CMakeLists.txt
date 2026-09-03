@@ -65,6 +65,7 @@ add_library(zui STATIC
     src/core/icon.c
     src/core/font.c
     src/core/image.c
+    src/core/panel.c
 
     # Platform - Wayland
     src/platform/wayland/wayland_platform.c

@@ -2,6 +2,7 @@
 #define ZUI_WINDOW_H
 
 #include <stdbool.h>
+#include <zui/color.h>
 
 typedef struct ZuiWindow ZuiWindow;
 typedef struct ZuiTitlebar ZuiTitlebar;
@@ -39,5 +40,9 @@ void zui_window_set_logo(ZuiWindow *window, const char *path);
 void zui_window_set_logo_size(ZuiWindow *window, float width, float height);
 void zui_window_set_logo_visible(ZuiWindow *window, bool visible);
 void zui_window_remove_logo(ZuiWindow *window);
+
+void zui_window_set_background_color(ZuiWindow *window, ZuiColor color);
+void zui_window_set_border_color(ZuiWindow *window, ZuiColor color);
+bool zui_window_is_active(ZuiWindow *window);
 
 #endif
