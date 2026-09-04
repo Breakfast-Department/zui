@@ -23,6 +23,7 @@
 > ZUI is under early development. Its API may change without notice. It currently targets Wayland only and does not yet provide an installation package, a stable external-consumption workflow, or an automated test suite.
 
 - [Overview](#overview)
+- [Priview](#preview)
 - [Current Features](#current-features)
 - [Project Status and Limitations](#project-status-and-limitations)
 - [Requirements](#requirements)
@@ -40,6 +41,9 @@
 ZUI provides a small native GUI foundation for Linux applications running in a Wayland session. It connects to Wayland directly, creates EGL-backed windows, renders widgets through OpenGL, and exposes a compact C API.
 
 The project is useful today for experimentation, learning, and contributing to a young toolkit. It is not yet intended as a production-ready or cross-platform GUI framework.
+
+## Preview
+<img src="./docs/screenshot/Screenshot_20260904_194437.png"/>
 
 ## Current Features
 
