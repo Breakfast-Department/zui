@@ -30,6 +30,7 @@ jobs:
             libegl1-mesa-dev \
             libgl1-mesa-dev \
             libxkbcommon-dev \
+            libwebp-dev \
             ${{ matrix.compiler == 'clang' && 'clang' || '' }}
 
       - name: Configure
@@ -63,6 +64,7 @@ jobs:
             libegl1-mesa-dev \
             libgl1-mesa-dev \
             libxkbcommon-dev \
+            libwebp-dev \
             clang-tools
 
       - name: Configure with compile commands
