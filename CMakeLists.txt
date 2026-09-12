@@ -6,6 +6,18 @@ project(zui
   LANGUAGES C
 )
 
+# Extract version components
+set(ZUI_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
+set(ZUI_VERSION_MINOR ${PROJECT_VERSION_MINOR})
+set(ZUI_VERSION_PATCH ${PROJECT_VERSION_PATCH})
+
+# Generate version header
+configure_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/zui/version.h.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/include/zui/version.h"
+  @ONLY
+)
+
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -53,7 +65,8 @@ add_library(glad STATIC
   external/glad/src/egl.c
 )
 target_include_directories(glad PUBLIC
-  external/glad/include
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/glad/include>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 target_link_libraries(glad PUBLIC ${CMAKE_DL_LIBS})
 
@@ -138,6 +151,7 @@ endif()
 target_include_directories(zui
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
     $<INSTALL_INTERFACE:include>
   PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/external/glad/include
@@ -252,6 +266,88 @@ if(ZUI_BUILD_EXAMPLES)
   endif()
 
 endif()
+
+# =============================================================================
+# Installation
+# =============================================================================
+
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
+# Install library and dependencies
+install(TARGETS zui glad
+  EXPORT zuiTargets
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+# Install public headers
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/zui
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+  FILES_MATCHING PATTERN "*.h"
+  PATTERN "internal" EXCLUDE
+)
+
+# Install generated version header
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/zui/version.h
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/zui
+)
+
+# Install glad headers (vendored dependency)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/external/glad/include/
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+  FILES_MATCHING PATTERN "*.h"
+)
+
+# Install assets
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/assets/
+  DESTINATION ${CMAKE_INSTALL_DATADIR}/zui
+  PATTERN "*.ttf"
+  PATTERN "*.svg"
+  PATTERN "*.png"
+  PATTERN "*.vert"
+  PATTERN "*.frag"
+)
+
+# Export targets
+install(EXPORT zuiTargets
+  FILE zuiTargets.cmake
+  NAMESPACE zui::
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/zui
+)
+
+# Generate config file
+configure_package_config_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/zuiConfig.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/zuiConfig.cmake
+  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/zui
+)
+
+# Generate version file
+write_basic_package_version_file(
+  ${CMAKE_CURRENT_BINARY_DIR}/zuiConfigVersion.cmake
+  VERSION ${PROJECT_VERSION}
+  COMPATIBILITY SameMajorVersion
+)
+
+# Install CMake config files
+install(FILES
+  ${CMAKE_CURRENT_BINARY_DIR}/zuiConfig.cmake
+  ${CMAKE_CURRENT_BINARY_DIR}/zuiConfigVersion.cmake
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/zui
+)
+
+# Generate and install pkg-config file
+configure_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/zui.pc.in
+  ${CMAKE_CURRENT_BINARY_DIR}/zui.pc
+  @ONLY
+)
+
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/zui.pc
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
+)
 
 # Summary
 message(STATUS "")

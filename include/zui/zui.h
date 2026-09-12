@@ -1,6 +1,7 @@
 #ifndef ZUI_H
 #define ZUI_H
 
+#include <zui/version.h>
 #include "app.h"
 #include "window.h"
 #include "widget.h"

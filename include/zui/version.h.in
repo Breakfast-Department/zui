@@ -1,0 +1,15 @@
+#ifndef ZUI_VERSION_H
+#define ZUI_VERSION_H
+
+#define ZUI_VERSION_MAJOR @ZUI_VERSION_MAJOR@
+#define ZUI_VERSION_MINOR @ZUI_VERSION_MINOR@
+#define ZUI_VERSION_PATCH @ZUI_VERSION_PATCH@
+
+#define ZUI_VERSION "@PROJECT_VERSION@"
+
+#define ZUI_VERSION_CHECK(major, minor, patch) \
+    ((major) < ZUI_VERSION_MAJOR || \
+     ((major) == ZUI_VERSION_MAJOR && (minor) < ZUI_VERSION_MINOR) || \
+     ((major) == ZUI_VERSION_MAJOR && (minor) == ZUI_VERSION_MINOR && (patch) <= ZUI_VERSION_PATCH))
+
+#endif

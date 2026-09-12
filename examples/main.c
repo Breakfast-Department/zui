@@ -1,5 +1,3 @@
-// POMODORO APP
-
 #include "zui/image.h"
 #include <zui/zui.h>
 #include <stdio.h>
@@ -247,7 +245,6 @@ int main(void)
 
   app.notify_sound = zui_audio_load("res:/audio/notify.mp3");
   if (!app.notify_sound) {
-    /* Fallback to file path */
     app.notify_sound = zui_audio_load("assets/audio/notify.mp3");
     if (!app.notify_sound) {
       fprintf(stderr, "Warning: Failed to load notification sound\n");

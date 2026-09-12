@@ -3,6 +3,7 @@
 #include <zui/internal/wayland_platform.h>
 #include <zui/internal/egl_context.h>
 #include <zui/internal/renderer.h>
+#include "zui/version.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -184,4 +185,16 @@ bool zui_resolve_asset_path(const char *relative_path, char *out, size_t size)
   strncpy(out, relative_path, size - 1);
   out[size - 1] = '\0';
   return access(out, F_OK) == 0;
+}
+
+const char *zui_version(void)
+{
+  return ZUI_VERSION;
+}
+
+void zui_version_info(int *major, int *minor, int *patch)
+{
+  if (major) *major = ZUI_VERSION_MAJOR;
+  if (minor) *minor = ZUI_VERSION_MINOR;
+  if (patch) *patch = ZUI_VERSION_PATCH;
 }

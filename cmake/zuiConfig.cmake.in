@@ -1,0 +1,8 @@
+@PACKAGE_INIT@
+
+include("${CMAKE_CURRENT_LIST_DIR}/zuiTargets.cmake")
+
+check_required_components(zui)
+
+# Provide ZUI_ASSETS_DIR for runtime asset discovery
+set(ZUI_ASSETS_DIR "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_DATADIR@/zui")

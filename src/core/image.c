@@ -106,7 +106,6 @@ ZuiImage *zui_image_create(const char *path)
     return NULL;
   }
 
-  /* Check for resource path */
   if (zui_is_resource_path(path)) {
     size_t size;
     const unsigned char *res_data = zui_resource_get(path, &size);
