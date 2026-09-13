@@ -4,41 +4,7 @@
 #include <string.h>
 #include <math.h>
 
-#include "../../embedded/embedded_shaders.h"
-
-static char *read_file(const char *path)
-{
-  FILE *f = fopen(path, "rb");
-  if (!f) {
-    fprintf(stderr, "ZUI: Failed to open file: %s\n", path);
-    return NULL;
-  }
-
-  fseek(f, 0, SEEK_END);
-  long len = ftell(f);
-  if (len < 0) {
-    fclose(f);
-    return NULL;
-  }
-  size_t size = (size_t)len;
-  fseek(f, 0, SEEK_SET);
-
-  char *content = malloc(size + 1);
-  if (!content) {
-    fclose(f);
-    return NULL;
-  }
-
-  if (fread(content, 1, size, f) != size) {
-    free(content);
-    fclose(f);
-    return NULL;
-  }
-
-  content[size] = '\0';
-  fclose(f);
-  return content;
-}
+extern const unsigned char *zui_internal_resource_get(const char *path, size_t *size);
 
 static GLuint compile_shader(GLenum type, const char *source)
 {
@@ -58,31 +24,32 @@ static GLuint compile_shader(GLenum type, const char *source)
   return shader;
 }
 
-static char *get_shader_source(const char *shader_path, const char *name)
+static char *get_shader_source(const char *name)
 {
-  char full_path[512];
-  snprintf(full_path, sizeof(full_path), "%s/%s", shader_path, name);
+  char res_path[256];
+  snprintf(res_path, sizeof(res_path), "res:/zui/shaders/%s", name);
 
-  char *src = read_file(full_path);
-  if (src) return src;
-
-  const char *embedded = zui_get_embedded_shader(name);
-  if (embedded) {
-    return strdup(embedded);
+  size_t size;
+  const unsigned char *data = zui_internal_resource_get(res_path, &size);
+  if (data && size > 0) {
+    char *src = malloc(size + 1);
+    if (src) {
+      memcpy(src, data, size);
+      src[size] = '\0';
+      return src;
+    }
   }
 
   fprintf(stderr, "ZUI: Shader not found: %s\n", name);
   return NULL;
 }
 
-static GLuint load_shader_program(const char *shader_path,
-                                   const char *vert_name,
-                                   const char *frag_name)
+static GLuint load_shader_program(const char *vert_name, const char *frag_name)
 {
-  char *vert_src = get_shader_source(shader_path, vert_name);
+  char *vert_src = get_shader_source(vert_name);
   if (!vert_src) return 0;
 
-  char *frag_src = get_shader_source(shader_path, frag_name);
+  char *frag_src = get_shader_source(frag_name);
   if (!frag_src) {
     free(vert_src);
     return 0;
@@ -122,7 +89,7 @@ static GLuint load_shader_program(const char *shader_path,
   return program;
 }
 
-bool zui_renderer_init(ZuiRenderer *renderer, const char *shader_path)
+bool zui_renderer_init(ZuiRenderer *renderer)
 {
   memset(renderer, 0, sizeof(*renderer));
   renderer->clip_stack_top = -1;
@@ -132,29 +99,25 @@ bool zui_renderer_init(ZuiRenderer *renderer, const char *shader_path)
     return false;
   }
 
-  renderer->rect_shader = load_shader_program(shader_path,
-                                               "rect.vert", "rect.frag");
+  renderer->rect_shader = load_shader_program("rect.vert", "rect.frag");
   if (!renderer->rect_shader) {
     return false;
   }
 
-  renderer->tex_shader = load_shader_program(shader_path,
-                                              "texture.vert", "texture.frag");
+  renderer->tex_shader = load_shader_program("texture.vert", "texture.frag");
   if (!renderer->tex_shader) {
     glDeleteProgram(renderer->rect_shader);
     return false;
   }
 
-  renderer->glyph_shader = load_shader_program(shader_path,
-                                                "glyph.vert", "glyph.frag");
+  renderer->glyph_shader = load_shader_program("glyph.vert", "glyph.frag");
   if (!renderer->glyph_shader) {
     glDeleteProgram(renderer->tex_shader);
     glDeleteProgram(renderer->rect_shader);
     return false;
   }
 
-  renderer->circle_shader = load_shader_program(shader_path,
-                                                 "circle.vert", "circle.frag");
+  renderer->circle_shader = load_shader_program("circle.vert", "circle.frag");
   if (!renderer->circle_shader) {
     glDeleteProgram(renderer->glyph_shader);
     glDeleteProgram(renderer->tex_shader);
@@ -162,8 +125,7 @@ bool zui_renderer_init(ZuiRenderer *renderer, const char *shader_path)
     return false;
   }
 
-  renderer->arc_shader = load_shader_program(shader_path,
-                                              "arc.vert", "arc.frag");
+  renderer->arc_shader = load_shader_program("arc.vert", "arc.frag");
   if (!renderer->arc_shader) {
     glDeleteProgram(renderer->circle_shader);
     glDeleteProgram(renderer->glyph_shader);
@@ -241,8 +203,7 @@ bool zui_renderer_init(ZuiRenderer *renderer, const char *shader_path)
 
   glBindVertexArray(0);
 
-  renderer->poly_shader = load_shader_program(shader_path,
-                                               "poly.vert", "poly.frag");
+  renderer->poly_shader = load_shader_program("poly.vert", "poly.frag");
   if (!renderer->poly_shader) {
     glDeleteProgram(renderer->arc_shader);
     glDeleteProgram(renderer->circle_shader);

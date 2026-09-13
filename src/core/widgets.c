@@ -2574,11 +2574,21 @@ void zui_label_set_size(ZuiLabel *label, float size)
   if (size < 9.0f) size = 9.0f;
   else if (size > 107.0f) size = 100.0f;
 
-  if (label->font == g_default_font) label->font = zui_font_create();
-  label->font->size = size;
+  if (label->font && fabsf(label->font->size - size) < 0.5f) {
+    return;
+  }
 
-  if (!init_font(label->font, label->font->font_data, size))
-    free(label->font->font_data);
+  if (label->font == g_default_font) {
+    label->font = zui_font_create();
+    label->owns_font = true;
+  }
+
+  if (label->font) {
+    zui_texture_destroy(&label->font->atlas);
+    if (!init_font(label->font, label->font->font_data, size)) {
+      free(label->font->font_data);
+    }
+  }
 
   if (label->font && label->text) {
     label->base.preferred_size.width = zui_font_text_width(label->font, label->text) + 16;
@@ -5202,6 +5212,9 @@ static void circularprogress_destroy(ZuiWidget *widget)
 {
   ZuiCircularProgress *cp = (ZuiCircularProgress *)widget;
   free(cp->text);
+  if (cp->font && cp->font != g_default_font) {
+    zui_font_destroy(cp->font);
+  }
 }
 
 static void circularprogress_on_mouse_down(ZuiWidget *widget, float x, float y,
@@ -5296,7 +5309,18 @@ void zui_circularprogress_set_text_color(ZuiCircularProgress *cp, ZuiColor color
 void zui_circularprogress_set_text_size(ZuiCircularProgress *cp, float size)
 {
   if (!cp) return;
+
+  if (cp->font && fabsf(cp->font->size - size) < 0.5f) {
+    return;
+  }
+
   cp->text_size = size;
+
+  if (cp->font && cp->font != g_default_font) {
+    zui_font_destroy(cp->font);
+    cp->font = NULL;
+  }
+
   const char *font_paths[] = {
     "/usr/share/fonts/noto/NotoSans-Regular.ttf",
     "/usr/share/fonts/TTF/NotoSans-Regular.ttf",

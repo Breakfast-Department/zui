@@ -57,7 +57,7 @@ typedef struct ZuiRenderer {
   int stencil_level;
 } ZuiRenderer;
 
-bool zui_renderer_init(ZuiRenderer *renderer, const char *shader_path);
+bool zui_renderer_init(ZuiRenderer *renderer);
 void zui_renderer_shutdown(ZuiRenderer *renderer);
 
 void zui_renderer_begin(ZuiRenderer *renderer, int width, int height);
