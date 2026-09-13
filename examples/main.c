@@ -69,7 +69,7 @@ static void update_ui(void)
   update_progress();
   zui_label_set_text(ZUI_LABEL(app.status_label), get_status_text());
 
-  ZuiColor work_color = ZUI_COLOR_HEX(0x3B38A0);
+  ZuiColor work_color = ZUI_COLOR_HEX(0x881AFF);
   ZuiColor break_color = ZUI_COLOR_HEX(0xF96E2A);
   ZuiColor idle_color = ZUI_COLOR_HEX(0x3498db);
 
@@ -244,14 +244,8 @@ int main(void)
   }
 
   app.notify_sound = zui_audio_load("res:/audio/notify.mp3");
-  if (!app.notify_sound) {
-    app.notify_sound = zui_audio_load("assets/audio/notify.mp3");
-    if (!app.notify_sound) {
-      fprintf(stderr, "Warning: Failed to load notification sound\n");
-    }
-  }
 
-  ZuiWindow *window = zui_window_create(320, 400, "Pomodoro");
+  ZuiWindow *window = zui_window_create(320, 400, "Focsy");
   if (!window) {
     fprintf(stderr, "Failed to create window\n");
     return 1;
@@ -265,7 +259,7 @@ int main(void)
   zui_window_set_background_color(window, ZUI_COLOR_HEX(0x1a1a2e));
 
   ZuiWindowDecoration *decor = zui_default_window_decoration(window);
-  zui_window_decoration_set_title(decor, "Pomodoro");
+  zui_window_decoration_set_title(decor, "Focsy");
   zui_window_decoration_set_logo(decor, "res:/images/app_icon.webp");
 
   ZuiWidget *content = zui_window_content(window);
