@@ -196,28 +196,6 @@ set_source_files_properties(src/audio/audio.c PROPERTIES
   COMPILE_FLAGS "-Wno-sign-conversion -Wno-conversion -Wno-double-promotion -Wno-shadow -Wno-sign-compare -Wno-unused-function -Wno-pedantic"
 )
 
-# Copy shader files to build directory
-file(GLOB SHADER_FILES "${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/*")
-file(COPY ${SHADER_FILES} DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/assets/shaders")
-
-# Also copy during build for incremental builds
-add_custom_target(copy_assets ALL
-  COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/assets/shaders"
-  COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/assets/icons"
-  COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/assets/logo"
-  COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/assets/video"
-  COMMAND ${CMAKE_COMMAND} -E copy_directory
-    "${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders"
-    "${CMAKE_CURRENT_BINARY_DIR}/assets/shaders"
-  COMMAND ${CMAKE_COMMAND} -E copy_directory
-    "${CMAKE_CURRENT_SOURCE_DIR}/assets/icons"
-    "${CMAKE_CURRENT_BINARY_DIR}/assets/icons"
-  COMMAND ${CMAKE_COMMAND} -E copy_directory
-    "${CMAKE_CURRENT_SOURCE_DIR}/assets/logo"
-    "${CMAKE_CURRENT_BINARY_DIR}/assets/logo"
-  COMMENT "Copying asset files"
-)
-
 # Resource compiler function for applications
 function(zui_compile_resources TARGET RES_FILE)
   get_filename_component(RES_NAME ${RES_FILE} NAME_WE)
@@ -251,7 +229,6 @@ option(ZUI_BUILD_EXAMPLES "Build example applications" ON)
 if(ZUI_BUILD_EXAMPLES)
   add_executable(zui_example examples/main.c)
   target_link_libraries(zui_example PRIVATE zui)
-  add_dependencies(zui_example copy_assets)
 
   # Compile embedded resources
   if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/examples/resources.res")

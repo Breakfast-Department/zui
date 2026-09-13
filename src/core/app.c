@@ -14,7 +14,6 @@ typedef struct ZuiApp {
   ZuiPlatform platform;
   ZuiEglContext egl;
   ZuiRenderer renderer;
-  char shader_path[PATH_MAX];
   char base_path[PATH_MAX];
   bool initialized;
 } ZuiApp;
@@ -60,40 +59,6 @@ static bool find_base_path(char *out, size_t size)
   return false;
 }
 
-static bool find_shader_path(char *out, size_t size)
-{
-  char exe_path[PATH_MAX];
-  ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
-  if (len == -1) return false;
-  exe_path[len] = '\0';
-
-  char *last_slash = strrchr(exe_path, '/');
-  if (last_slash) *last_slash = '\0';
-
-  snprintf(out, size, "%s/../assets/shaders", exe_path);
-
-  if (access(out, F_OK) == 0) return true;
-
-  snprintf(out, size, "%s/assets/shaders", exe_path);
-  if (access(out, F_OK) == 0) return true;
-
-  const char *fallbacks[] = {
-    "assets/shaders",
-    "../assets/shaders",
-    "/usr/share/zui/shaders",
-    "/usr/local/share/zui/shaders",
-  };
-  for (size_t i = 0; i < sizeof(fallbacks) / sizeof(fallbacks[0]); i++) {
-    if (access(fallbacks[i], F_OK) == 0) {
-      strncpy(out, fallbacks[i], size - 1);
-      out[size - 1] = '\0';
-      return true;
-    }
-  }
-
-  return false;
-}
-
 bool zui_init(void)
 {
   if (g_app.initialized) return true;
@@ -102,11 +67,6 @@ bool zui_init(void)
     if (getcwd(g_app.base_path, sizeof(g_app.base_path)) == NULL) {
       strncpy(g_app.base_path, ".", sizeof(g_app.base_path) - 1);
     }
-  }
-
-  if (!find_shader_path(g_app.shader_path, sizeof(g_app.shader_path))) {
-    strncpy(g_app.shader_path, "assets/shaders",
-            sizeof(g_app.shader_path) - 1);
   }
 
   if (!zui_platform_init(&g_app.platform)) {
@@ -161,7 +121,7 @@ bool zui_renderer_is_initialized(void)
 bool zui_init_renderer_if_needed(void)
 {
   if (g_app.renderer.rect_shader != 0) return true;
-  return zui_renderer_init(&g_app.renderer, g_app.shader_path);
+  return zui_renderer_init(&g_app.renderer);
 }
 
 const char *zui_get_base_path(void)
