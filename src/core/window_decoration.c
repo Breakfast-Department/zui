@@ -283,7 +283,7 @@ void zui_window_decoration_set_title(ZuiWindowDecoration *decor, const char *tit
   } else {
     decor->title_label = zui_label_new(title);
     if (decor->title_label) {
-      zui_label_set_size((ZuiLabel *)decor->title_label, 13.0f);
+      zui_label_set_size((ZuiLabel *)decor->title_label, 16.0f);
       zui_widget_add_child(decor->center_section, decor->title_label);
     }
   }
