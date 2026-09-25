@@ -9,7 +9,7 @@ typedef struct ZuiWidget ZuiWidget;
 typedef struct ZuiWindow ZuiWindow;
 typedef struct ZuiWindowDecoration ZuiWindowDecoration;
 typedef struct ZuiButton ZuiButton;
-typedef struct ZuiLabel ZuiLabel;
+typedef struct ZuiText ZuiText;
 typedef struct ZuiContainer ZuiContainer;
 typedef struct ZuiPanel ZuiPanel;
 typedef struct ZuiCheckbox ZuiCheckbox;

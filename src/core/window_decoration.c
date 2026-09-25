@@ -1,3 +1,5 @@
+#include "zui/color.h"
+#include "zui/widget.h"
 #include <zui/internal/window_internal.h>
 #include <zui/internal/widget_internal.h>
 #include <zui/image.h>
@@ -9,11 +11,10 @@ extern ZuiWidget *zui_window_close_button(ZuiWindow *window);
 extern ZuiWidget *zui_window_minimize_button(ZuiWindow *window);
 extern ZuiWidget *zui_window_maximize_button(ZuiWindow *window);
 extern void zui_button_on_click(ZuiButton *button, ZuiClickCallback callback, void *user_data);
-extern ZuiLabel *zui_label_create(const char *text);
-extern void zui_label_set_text(ZuiLabel *label, const char *text);
-extern void zui_label_set_size(ZuiLabel *label, float size);
+extern ZuiText *zui_text_create(const char *text);
+extern void zui_text_set_content(ZuiText *text, const char *content);
+extern void zui_text_set_size(ZuiText *text, float size);
 extern void zui_window_mark_needs_redraw(ZuiWindow *window);
-extern ZuiWidget *zui_label_new(const char *text);
 extern void zui_window_close(ZuiWindow *window);
 extern void zui_window_maximize(ZuiWindow *window);
 extern void zui_window_minimize(ZuiWindow *window);
@@ -22,8 +23,8 @@ extern void zui_add_window_moving_handler(ZuiWindow *window, ZuiWidget *widget);
 extern void zui_remove_window_moving_handler(ZuiWindow *window, ZuiWidget *widget);
 extern void zui_set_window_decoration(ZuiWindow *window, ZuiWidget *decoration);
 
-#define WINDOW_DECORATION_HEIGHT 32.0f
-#define WINDOW_DECORATION_PADDING 4.0f
+#define WINDOW_DECORATION_HEIGHT 30.0f
+#define WINDOW_DECORATION_PADDING 2.0f
 
 typedef struct ZuiWindowDecoration ZuiWindowDecoration;
 
@@ -202,8 +203,8 @@ ZuiWindowDecoration *zui_default_window_decoration(ZuiWindow *window)
     return NULL;
   }
 
-  decor->container->background = ZUI_COLOR(0, 0, 0, 0);
-  decor->container->padding = 2.0f;
+  decor->container->background = ZUI_COLOR_HEX(0x141726);
+  decor->container->padding = WINDOW_DECORATION_PADDING;
   decor->container->preferred_size.height = WINDOW_DECORATION_HEIGHT;
   decor->container->fill_width = true;
 
@@ -279,11 +280,11 @@ void zui_window_decoration_set_title(ZuiWindowDecoration *decor, const char *tit
   if (!decor || !decor->center_section) return;
 
   if (decor->title_label) {
-    zui_label_set_text((ZuiLabel *)decor->title_label, title);
+    zui_text_set_content((ZuiText*)decor->title_label, title);
   } else {
-    decor->title_label = zui_label_new(title);
+    decor->title_label = (ZuiWidget*)zui_text_create(title);
     if (decor->title_label) {
-      zui_label_set_size((ZuiLabel *)decor->title_label, 16.0f);
+      zui_text_set_size((ZuiText*)decor->title_label, 16.0f);
       zui_widget_add_child(decor->center_section, decor->title_label);
     }
   }

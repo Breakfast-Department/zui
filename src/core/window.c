@@ -1,4 +1,5 @@
 #include <zui/internal/window_internal.h>
+#include <zui/window.h>
 #include <zui/internal/font_internal.h>
 #include <zui/image.h>
 #include <zui/font.h>
@@ -10,8 +11,8 @@
 #include <linux/limits.h>
 #include <linux/input-event-codes.h>
 
-#define ZUI_DEFAULT_MIN_WIDTH 200
-#define ZUI_DEFAULT_MIN_HEIGHT 35
+#define ZUI_DEFAULT_MIN_WIDTH 64
+#define ZUI_DEFAULT_MIN_HEIGHT 32
 #define ZUI_RESIZE_BORDER 6.0f
 #define ZUI_RESIZE_CORNER 12.0f
 #define ZUI_HANDLER_INITIAL_CAPACITY 4
@@ -352,7 +353,7 @@ ZuiWindow *zui_window_create(int width, int height, const char *title)
   window->base.corner_radius = 0;
   window->background_color = ZUI_COLOR_HEX(0x242424);
   window->border_color = ZUI_COLOR_HEX(0x3d3d3d);
-  window->border_width = 1.0f;
+  window->border_width = 0.5f;
 
   init_handler_list(&window->moving_handlers, &window->moving_handler_count,
                     &window->moving_handler_capacity);
@@ -447,6 +448,12 @@ void zui_window_render(ZuiWindow *window)
   float inset = border;
   float inner_radius = radius > inset ? radius - inset : 0;
 
+  if (zui_window_is_maximized(window)) {
+    window->content->corner_radius = 0;
+  } else {
+    window->content->corner_radius = window->corner_radius - window->border_width;
+  }
+
   zui_widget_set_bounds((ZuiWidget *)window, inset, inset,
                          (float)window->width - inset * 2,
                          (float)window->height - inset * 2);
@@ -508,6 +515,7 @@ void zui_window_set_corner_radius(ZuiWindow *window, float radius)
   if (!window) return;
   window->corner_radius = radius;
   window->base.corner_radius = radius;
+  window->content->corner_radius = radius - 0.5f;
   window->needs_redraw = true;
 }
 

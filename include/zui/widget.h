@@ -11,7 +11,7 @@
 
 typedef struct ZuiWidget ZuiWidget;
 typedef struct ZuiButton ZuiButton;
-typedef struct ZuiLabel ZuiLabel;
+typedef struct ZuiText ZuiText;
 typedef struct ZuiPanel ZuiPanel;
 typedef struct ZuiCheckbox ZuiCheckbox;
 typedef struct ZuiScrollView ZuiScrollView;
@@ -61,7 +61,7 @@ typedef enum ZuiWidgetType {
   ZUI_WIDGET_WINDOW,
   ZUI_WIDGET_TITLEBAR,
   ZUI_WIDGET_BUTTON,
-  ZUI_WIDGET_LABEL,
+  ZUI_WIDGET_TEXT,
   ZUI_WIDGET_ICON,
   ZUI_WIDGET_IMAGE,
   ZUI_WIDGET_PANEL,
@@ -95,7 +95,7 @@ ZuiWidgetType zui_widget_get_type(ZuiWidget *widget);
 #define ZUI_WIDGET(obj) ((ZuiWidget *)(obj))
 
 #define ZUI_IS_BUTTON(w)     ((w) && zui_widget_get_type(ZUI_WIDGET(w)) == ZUI_WIDGET_BUTTON)
-#define ZUI_IS_LABEL(w)      ((w) && zui_widget_get_type(ZUI_WIDGET(w)) == ZUI_WIDGET_LABEL)
+#define ZUI_IS_TEXT(w)        ((w) && zui_widget_get_type(ZUI_WIDGET(w)) == ZUI_WIDGET_TEXT)
 #define ZUI_IS_PANEL(w)      ((w) && zui_widget_get_type(ZUI_WIDGET(w)) == ZUI_WIDGET_PANEL)
 #define ZUI_IS_CHECKBOX(w)   ((w) && zui_widget_get_type(ZUI_WIDGET(w)) == ZUI_WIDGET_CHECKBOX)
 #define ZUI_IS_TEXTINPUT(w)  ((w) && zui_widget_get_type(ZUI_WIDGET(w)) == ZUI_WIDGET_TEXTINPUT)
@@ -118,7 +118,7 @@ ZuiWidgetType zui_widget_get_type(ZuiWidget *widget);
 #define ZUI_IS_IMAGE(w)      ((w) && zui_widget_get_type(ZUI_WIDGET(w)) == ZUI_WIDGET_IMAGE)
 
 #define ZUI_BUTTON(w)     (ZUI_IS_BUTTON(w) ? (ZuiButton *)(w) : NULL)
-#define ZUI_LABEL(w)      (ZUI_IS_LABEL(w) ? (ZuiLabel *)(w) : NULL)
+#define ZUI_TEXT(w)      (ZUI_IS_TEXT(w) ? (ZuiText *)(w) : NULL)
 #define ZUI_PANEL(w)      (ZUI_IS_PANEL(w) ? (ZuiPanel *)(w) : NULL)
 #define ZUI_CHECKBOX(w)   (ZUI_IS_CHECKBOX(w) ? (ZuiCheckbox *)(w) : NULL)
 #define ZUI_TEXTINPUT(w)  (ZUI_IS_TEXTINPUT(w) ? (ZuiTextInput *)(w) : NULL)
@@ -172,31 +172,25 @@ void zui_widget_set_alignment(ZuiWidget *widget, ZuiAlign main_axis, ZuiAlign cr
 #define zui_set_padding zui_widget_set_padding
 #define zui_set_spacing zui_widget_set_spacing
 
-ZuiWidget *zui_button_new(const char *text);
 ZuiButton *zui_button_create(const char *text);
-void zui_button_set_text(ZuiButton *button, const char *text);
-const char *zui_button_get_text(ZuiButton *button);
 void zui_button_set_size(ZuiButton *button, float width, float height);
 void zui_button_set_color(ZuiButton *button, ZuiColor color);
+void zui_button_set_alignment(ZuiButton* button, ZuiAlign align);
 void zui_button_on_click(ZuiButton *button, ZuiClickCallback callback,
                           void *user_data);
-void zui_button_set_icon(ZuiButton *button, const char *image_path, float size);
-void zui_button_set_text_color(ZuiButton *button, ZuiColor color);
 ZuiWidget *zui_button_as_widget(ZuiButton *button);
 
-ZuiWidget *zui_label_new(const char *text);
-ZuiLabel *zui_label_create(const char *text);
-void zui_label_set_size(ZuiLabel *label, float size);
-void zui_label_set_text(ZuiLabel *label, const char *text);
-const char *zui_label_get_text(ZuiLabel *label);
-void zui_label_set_font(ZuiLabel *label, ZuiFont *font);
-void zui_label_set_color(ZuiLabel *label, ZuiColor color);
-float zui_label_get_font_size(ZuiLabel *label);
-ZuiWidget *zui_label_as_widget(ZuiLabel *label);
+ZuiText *zui_text_create(const char *text);
+void zui_text_set_size(ZuiText *text, float size);
+void zui_text_set_content(ZuiText *text, const char *content);
+const char *zui_text_get_content(ZuiText *text);
+void zui_text_set_font(ZuiText *text, ZuiFont *font);
+void zui_text_set_color(ZuiText *text, ZuiColor color);
+float zui_text_get_font_size(ZuiText *text);
+ZuiWidget *zui_text_as_widget(ZuiText *text);
 
-#define zui_get_font_size zui_label_get_font_size
+#define zui_get_font_size zui_text_get_font_size
 
-ZuiWidget *zui_checkbox_new(const char *label);
 ZuiCheckbox *zui_checkbox_create(const char *label);
 void zui_checkbox_set_checked(ZuiCheckbox *checkbox, bool checked);
 bool zui_checkbox_is_checked(ZuiCheckbox *checkbox);
@@ -226,7 +220,6 @@ void zui_radiobutton_set_size(ZuiRadioButton *rb, float size);
 const char *zui_radiobutton_get_label(ZuiRadioButton *rb);
 ZuiWidget *zui_radiobutton_as_widget(ZuiRadioButton *rb);
 
-ZuiWidget *zui_panel_new(void);
 ZuiPanel *zui_panel_create(void);
 void zui_panel_destroy(ZuiPanel *panel);
 void zui_panel_set_layout(ZuiPanel *panel, ZuiLayoutDir direction);
@@ -245,7 +238,6 @@ ZuiWidget *zui_panel_as_widget(ZuiPanel *panel);
 typedef void (*ZuiScrollViewCallback)(ZuiScrollView *sv, float x, float y,
                                        void *user_data);
 
-ZuiWidget *zui_scrollview_new(void);
 ZuiScrollView *zui_scrollview_create(void);
 void zui_scrollview_set_content(ZuiScrollView *sv, ZuiWidget *content);
 void zui_scrollview_set_size(ZuiScrollView *sv, float width, float height);
@@ -255,7 +247,6 @@ void zui_scrollview_on_scroll(ZuiScrollView *sv, ZuiScrollViewCallback callback,
                                void *user_data);
 ZuiWidget *zui_scrollview_as_widget(ZuiScrollView *sv);
 
-ZuiWidget *zui_scroller_new(bool vertical);
 ZuiScroller *zui_scroller_create(bool vertical);
 void zui_scroller_set_size(ZuiScroller *scroller, float width, float height);
 void zui_scroller_set_range(ZuiScroller *scroller, float content_size,
@@ -273,7 +264,6 @@ typedef enum ZuiSplitAnchor {
   ZUI_SPLIT_ANCHOR_END,
 } ZuiSplitAnchor;
 
-ZuiWidget *zui_splitview_new(bool vertical);
 ZuiSplitView *zui_splitview_create(bool vertical);
 void zui_splitview_set_vertical(ZuiSplitView *sv, bool vertical);
 void zui_splitview_add_child(ZuiSplitView *sv, ZuiWidget *widget);
@@ -289,7 +279,6 @@ void zui_splitview_set_grip_color(ZuiSplitView *sv, ZuiColor normal,
                                    ZuiColor hover, ZuiColor drag);
 ZuiWidget *zui_splitview_as_widget(ZuiSplitView *sv);
 
-ZuiWidget *zui_textinput_new(const char *placeholder);
 ZuiTextInput *zui_textinput_create(const char *placeholder);
 void zui_textinput_set_text(ZuiTextInput *input, const char *text);
 const char *zui_textinput_get_text(ZuiTextInput *input);
@@ -302,7 +291,6 @@ void zui_textinput_on_change(ZuiTextInput *input, ZuiTextInputCallback callback,
                               void *user_data);
 ZuiWidget *zui_textinput_as_widget(ZuiTextInput *input);
 
-ZuiWidget *zui_slider_new(float min, float max, float value);
 ZuiSlider *zui_slider_create(float min, float max, float value);
 void zui_slider_set_value(ZuiSlider *slider, float value);
 float zui_slider_get_value(ZuiSlider *slider);
@@ -314,7 +302,6 @@ void zui_slider_on_change(ZuiSlider *slider, ZuiSliderCallback callback,
                            void *user_data);
 ZuiWidget *zui_slider_as_widget(ZuiSlider *slider);
 
-ZuiWidget *zui_dropdown_new(const char *placeholder);
 ZuiDropdown *zui_dropdown_create(const char *placeholder);
 void zui_dropdown_add_item(ZuiDropdown *dropdown, const char *item);
 void zui_dropdown_clear_items(ZuiDropdown *dropdown);
@@ -328,7 +315,6 @@ void zui_dropdown_on_change(ZuiDropdown *dropdown, ZuiDropdownCallback callback,
                              void *user_data);
 ZuiWidget *zui_dropdown_as_widget(ZuiDropdown *dropdown);
 
-ZuiWidget *zui_progressbar_new(void);
 ZuiProgressBar *zui_progressbar_create(void);
 void zui_progressbar_set_value(ZuiProgressBar *bar, float value);
 float zui_progressbar_get_value(ZuiProgressBar *bar);
@@ -338,7 +324,6 @@ void zui_progressbar_set_colors(ZuiProgressBar *bar, ZuiColor track,
 void zui_progressbar_set_corner_radius(ZuiProgressBar *bar, float radius);
 ZuiWidget *zui_progressbar_as_widget(ZuiProgressBar *bar);
 
-ZuiWidget *zui_gridview_new(int columns);
 ZuiGridView *zui_gridview_create(int columns);
 void zui_gridview_set_columns(ZuiGridView *gv, int columns);
 void zui_gridview_set_size(ZuiGridView *gv, float width, float height);
@@ -377,7 +362,6 @@ ZuiWidget *zui_menuitem_as_widget(ZuiMenuItem *item);
 typedef void (*ZuiPieChartCallback)(ZuiPieChart *chart, int slice_index,
                                      void *user_data);
 
-ZuiWidget *zui_piechart_new(void);
 ZuiPieChart *zui_piechart_create(void);
 void zui_piechart_set_size(ZuiPieChart *chart, float size);
 void zui_piechart_add_slice(ZuiPieChart *chart, float value, ZuiColor color);
@@ -397,7 +381,6 @@ ZuiWidget *zui_piechart_as_widget(ZuiPieChart *chart);
 typedef void (*ZuiBarChartCallback)(ZuiBarChart *chart, int bar_index,
                                      void *user_data);
 
-ZuiWidget *zui_barchart_new(void);
 ZuiBarChart *zui_barchart_create(void);
 void zui_barchart_set_size(ZuiBarChart *chart, float width, float height);
 void zui_barchart_add_bar(ZuiBarChart *chart, float value, ZuiColor color);
@@ -416,7 +399,6 @@ void zui_barchart_on_click(ZuiBarChart *chart, ZuiBarChartCallback callback,
 int zui_barchart_get_hovered_bar(ZuiBarChart *chart);
 ZuiWidget *zui_barchart_as_widget(ZuiBarChart *chart);
 
-ZuiWidget *zui_linechart_new(void);
 ZuiLineChart *zui_linechart_create(void);
 void zui_linechart_set_size(ZuiLineChart *chart, float width, float height);
 void zui_linechart_add_point(ZuiLineChart *chart, float value);
@@ -427,7 +409,6 @@ void zui_linechart_set_line_thickness(ZuiLineChart *chart, float thickness);
 void zui_linechart_set_show_points(ZuiLineChart *chart, bool show);
 ZuiWidget *zui_linechart_as_widget(ZuiLineChart *chart);
 
-ZuiWidget *zui_circularprogress_new(void);
 ZuiCircularProgress *zui_circularprogress_create(void);
 void zui_circularprogress_set_size(ZuiCircularProgress *cp, float size);
 void zui_circularprogress_set_value(ZuiCircularProgress *cp, float value);
@@ -450,6 +431,6 @@ ZuiWidget *zui_window_minimize_button(ZuiWindow *window);
 ZuiWidget *zui_window_maximize_button(ZuiWindow *window);
 ZuiWidget *zui_window_hide_button(ZuiWindow *window);
 
-void zui_label_set_font_size(ZuiLabel *label, float size);
+void zui_label_set_font_size(ZuiText *label, float size);
 
 #endif

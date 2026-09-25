@@ -1,4 +1,6 @@
+#include "zui/color.h"
 #include "zui/font.h"
+#include "zui/widget.h"
 #include <zui/internal/widget_internal.h>
 #include <zui/internal/window_internal.h>
 #include <zui/internal/icon_internal.h>
@@ -49,6 +51,7 @@ struct ZuiButton {
   ZuiTexture icon_texture;
   float icon_size;
   float icon_spacing;
+  ZuiAlign align;
 };
 
 typedef struct ZuiIconButton {
@@ -70,7 +73,7 @@ typedef struct ZuiMaximizeButton {
   ZuiWindow *window;
 } ZuiMaximizeButton;
 
-struct ZuiLabel {
+struct ZuiText {
   ZuiWidget base;
   char *text;
   ZuiColor text_color;
@@ -303,10 +306,16 @@ ZuiButton *zui_button_create(const char *text)
   button->base.corner_radius = 6.0f;
   button->base.preferred_size.width = 80.0f;
   button->base.preferred_size.height = 32.0f;
-  button->base.padding = 12.0f;
+  button->base.padding = 8.0f;
   button->base.cursor = ZUI_CURSOR_POINTER;
 
   return button;
+}
+
+void zui_button_set_alignment(ZuiButton *button, ZuiAlign align)
+{
+  if (!button) return;
+  button->align = align;
 }
 
 void zui_button_set_text(ZuiButton *button, const char *text)
@@ -374,47 +383,42 @@ ZuiWidget *zui_button_as_widget(ZuiButton *button)
   return (ZuiWidget *)button;
 }
 
-ZuiWidget *zui_button_new(const char *text)
+static void text_draw(ZuiWidget *widget, ZuiRenderer *renderer)
 {
-  return (ZuiWidget *)zui_button_create(text);
-}
+  ZuiText *text = (ZuiText *)widget;
+  if (!text->text || !text->font) return;
 
-static void label_draw(ZuiWidget *widget, ZuiRenderer *renderer)
-{
-  ZuiLabel *label = (ZuiLabel *)widget;
-  if (!label->text || !label->font) return;
-
-  float text_w = zui_font_text_width(label->font, label->text);
-  float text_h = zui_font_text_height(label->font, label->text);
+  float text_w = zui_font_text_width(text->font, text->text);
+  float text_h = zui_font_text_height(text->font, text->text);
 
   float x = widget->bounds.x + (widget->bounds.width - text_w) / 2;
   float y = widget->bounds.y + (widget->bounds.height - text_h) / 2;
 
-  zui_font_render_text(label->font, renderer, x, y, label->text, label->text_color);
+  zui_font_render_text(text->font, renderer, x, y, text->text, text->text_color);
 }
 
-static void label_destroy(ZuiWidget *widget)
+static void text_destroy(ZuiWidget *widget)
 {
-  ZuiLabel *label = (ZuiLabel *)widget;
-  free(label->text);
-  if (label->owns_font && label->font) {
-    zui_font_destroy(label->font);
+  ZuiText *text = (ZuiText *)widget;
+  free(text->text);
+  if (text->owns_font && text->font) {
+    zui_font_destroy(text->font);
   }
 }
 
-static const ZuiWidgetVTable label_vtable = {
-  .draw = label_draw,
-  .destroy = label_destroy,
+static const ZuiWidgetVTable text_vtable = {
+  .draw = text_draw,
+  .destroy = text_destroy,
 };
 
 struct ZuiCheckbox {
   ZuiWidget base;
-  char *label;
+  char *text;
   bool checked;
   ZuiColor box_color;
   ZuiColor checked_box_color;
   ZuiColor icon_color;
-  ZuiColor label_color;
+  ZuiColor text_color;
   ZuiFont *font;
   float box_size;
   float corner_radius;
@@ -450,12 +454,12 @@ static void checkbox_draw(ZuiWidget *widget, ZuiRenderer *renderer)
       cb->icon_color);
   }
 
-  if (cb->label && cb->font) {
+  if (cb->text && cb->font) {
     float text_x = box_x + cb->box_size + 8.0f;
-    float text_h = zui_font_text_height(cb->font, cb->label);
+    float text_h = zui_font_text_height(cb->font, cb->text);
     float text_y = widget->bounds.y + (widget->bounds.height - text_h) / 2;
     zui_font_render_text(cb->font, renderer, text_x, text_y,
-                          cb->label, cb->label_color);
+                          cb->text, cb->text_color);
   }
 }
 
@@ -494,7 +498,7 @@ static void checkbox_on_mouse_up(ZuiWidget *widget, float x, float y,
 static void checkbox_destroy(ZuiWidget *widget)
 {
   ZuiCheckbox *cb = (ZuiCheckbox *)widget;
-  free(cb->label);
+  free(cb->text);
   if (cb->check_texture.id) {
     zui_texture_destroy(&cb->check_texture);
   }
@@ -514,18 +518,18 @@ static const ZuiWidgetVTable checkbox_vtable = {
 
 static ZuiFont *get_default_font(void);
 
-ZuiCheckbox *zui_checkbox_create(const char *label)
+ZuiCheckbox *zui_checkbox_create(const char *text)
 {
   ZuiCheckbox *cb = (ZuiCheckbox *)zui_widget_create(
     sizeof(ZuiCheckbox), ZUI_WIDGET_CHECKBOX, &checkbox_vtable);
   if (!cb) return NULL;
 
-  cb->label = label ? strdup(label) : NULL;
+  cb->text = text ? strdup(text) : NULL;
   cb->checked = false;
   cb->box_color = ZUI_COLOR_HEX(0x4d4d4d);
   cb->checked_box_color = ZUI_COLOR_HEX(0x4a9eff);
   cb->icon_color = ZUI_COLOR_RGB(1.0f, 1.0f, 1.0f);
-  cb->label_color = ZUI_COLOR_HEX(0xffffff);
+  cb->text_color = ZUI_COLOR_HEX(0xffffff);
   cb->font = get_default_font();
   cb->box_size = 18.0f;
   cb->corner_radius = 4.0f;
@@ -541,11 +545,11 @@ ZuiCheckbox *zui_checkbox_create(const char *label)
 
   cb->base.cursor = ZUI_CURSOR_POINTER;
 
-  float label_width = 0;
-  if (cb->font && label) {
-    label_width = zui_font_text_width(cb->font, label);
+  float text_width = 0;
+  if (cb->font && text) {
+    text_width = zui_font_text_width(cb->font, text);
   }
-  cb->base.preferred_size.width = cb->box_size + 8.0f + label_width;
+  cb->base.preferred_size.width = cb->box_size + 8.0f + text_width;
   cb->base.preferred_size.height = cb->box_size + 8.0f;
 
   return cb;
@@ -563,17 +567,17 @@ bool zui_checkbox_is_checked(ZuiCheckbox *checkbox)
   return checkbox->checked;
 }
 
-void zui_checkbox_set_label(ZuiCheckbox *checkbox, const char *label)
+void zui_checkbox_set_text(ZuiCheckbox *checkbox, const char *text)
 {
   if (!checkbox) return;
-  free(checkbox->label);
-  checkbox->label = label ? strdup(label) : NULL;
+  free(checkbox->text);
+  checkbox->text = text ? strdup(text) : NULL;
 
-  float label_width = 0;
-  if (checkbox->font && label) {
-    label_width = zui_font_text_width(checkbox->font, label);
+  float text_width = 0;
+  if (checkbox->font && text) {
+    text_width = zui_font_text_width(checkbox->font, text);
   }
-  checkbox->base.preferred_size.width = checkbox->box_size + 8.0f + label_width;
+  checkbox->base.preferred_size.width = checkbox->box_size + 8.0f + text_width;
 }
 
 void zui_checkbox_set_size(ZuiCheckbox *checkbox, float size)
@@ -581,11 +585,11 @@ void zui_checkbox_set_size(ZuiCheckbox *checkbox, float size)
   if (!checkbox) return;
   checkbox->box_size = size;
 
-  float label_width = 0;
-  if (checkbox->font && checkbox->label) {
-    label_width = zui_font_text_width(checkbox->font, checkbox->label);
+  float text_width = 0;
+  if (checkbox->font && checkbox->text) {
+    text_width = zui_font_text_width(checkbox->font, checkbox->text);
   }
-  checkbox->base.preferred_size.width = size + 8.0f + label_width;
+  checkbox->base.preferred_size.width = size + 8.0f + text_width;
   checkbox->base.preferred_size.height = size + 8.0f;
 }
 
@@ -636,11 +640,6 @@ ZuiWidget *zui_checkbox_as_widget(ZuiCheckbox *checkbox)
   return (ZuiWidget *)checkbox;
 }
 
-ZuiWidget *zui_checkbox_new(const char *label)
-{
-  return (ZuiWidget *)zui_checkbox_create(label);
-}
-
 struct ZuiRadioGroup {
   ZuiRadioButton **buttons;
   size_t count;
@@ -652,12 +651,12 @@ struct ZuiRadioGroup {
 
 struct ZuiRadioButton {
   ZuiWidget base;
-  char *label;
+  char *text;
   ZuiRadioGroup *group;
   ZuiColor circle_color;
   ZuiColor selected_color;
   ZuiColor dot_color;
-  ZuiColor label_color;
+  ZuiColor text_color;
   ZuiFont *font;
   float size;
 };
@@ -689,12 +688,12 @@ static void radiobutton_draw(ZuiWidget *widget, ZuiRenderer *renderer)
       rb->dot_color, dot_radius);
   }
 
-  if (rb->label && rb->font) {
+  if (rb->text && rb->font) {
     float text_x = widget->bounds.x + rb->size + 8.0f;
-    float text_h = zui_font_text_height(rb->font, rb->label);
+    float text_h = zui_font_text_height(rb->font, rb->text);
     float text_y = widget->bounds.y + (widget->bounds.height - text_h) / 2;
     zui_font_render_text(rb->font, renderer, text_x, text_y,
-                          rb->label, rb->label_color);
+                          rb->text, rb->text_color);
   }
 }
 
@@ -727,7 +726,7 @@ static void radiobutton_on_mouse_up(ZuiWidget *widget, float x, float y,
 static void radiobutton_destroy(ZuiWidget *widget)
 {
   ZuiRadioButton *rb = (ZuiRadioButton *)widget;
-  free(rb->label);
+  free(rb->text);
 }
 
 static const ZuiWidgetVTable radiobutton_vtable = {
@@ -796,7 +795,7 @@ void zui_radiogroup_select(ZuiRadioGroup *group, size_t index)
   }
 }
 
-ZuiRadioButton *zui_radiobutton_create(ZuiRadioGroup *group, const char *label)
+ZuiRadioButton *zui_radiobutton_create(ZuiRadioGroup *group, const char *text)
 {
   if (!group) return NULL;
 
@@ -804,22 +803,22 @@ ZuiRadioButton *zui_radiobutton_create(ZuiRadioGroup *group, const char *label)
     sizeof(ZuiRadioButton), ZUI_WIDGET_RADIOBUTTON, &radiobutton_vtable);
   if (!rb) return NULL;
 
-  rb->label = label ? strdup(label) : NULL;
+  rb->text = text ? strdup(text) : NULL;
   rb->group = group;
   rb->circle_color = ZUI_COLOR_HEX(0x4d4d4d);
   rb->selected_color = ZUI_COLOR_HEX(0x4a9eff);
   rb->dot_color = ZUI_COLOR_RGB(1.0f, 1.0f, 1.0f);
-  rb->label_color = ZUI_COLOR_HEX(0xffffff);
+  rb->text_color = ZUI_COLOR_HEX(0xffffff);
   rb->font = get_default_font();
   rb->size = 18.0f;
 
   rb->base.cursor = ZUI_CURSOR_POINTER;
 
-  float label_width = 0;
-  if (rb->font && label) {
-    label_width = zui_font_text_width(rb->font, label);
+  float text_width = 0;
+  if (rb->font && text) {
+    text_width = zui_font_text_width(rb->font, text);
   }
-  rb->base.preferred_size.width = rb->size + 8.0f + label_width;
+  rb->base.preferred_size.width = rb->size + 8.0f + text_width;
   rb->base.preferred_size.height = rb->size + 8.0f;
 
   if (group->count >= group->capacity) {
@@ -853,10 +852,10 @@ void zui_radiobutton_set_colors(ZuiRadioButton *rb, ZuiColor circle,
   rb->dot_color = dot;
 }
 
-void zui_radiobutton_set_label_color(ZuiRadioButton *rb, ZuiColor color)
+void zui_radiobutton_set_text_color(ZuiRadioButton *rb, ZuiColor color)
 {
   if (!rb) return;
-  rb->label_color = color;
+  rb->text_color = color;
 }
 
 void zui_radiobutton_set_size(ZuiRadioButton *rb, float size)
@@ -864,18 +863,18 @@ void zui_radiobutton_set_size(ZuiRadioButton *rb, float size)
   if (!rb) return;
   rb->size = size;
 
-  float label_width = 0;
-  if (rb->font && rb->label) {
-    label_width = zui_font_text_width(rb->font, rb->label);
+  float text_width = 0;
+  if (rb->font && rb->text) {
+    text_width = zui_font_text_width(rb->font, rb->text);
   }
-  rb->base.preferred_size.width = size + 8.0f + label_width;
+  rb->base.preferred_size.width = size + 8.0f + text_width;
   rb->base.preferred_size.height = size + 8.0f;
 }
 
-const char *zui_radiobutton_get_label(ZuiRadioButton *rb)
+const char *zui_radiobutton_get_text(ZuiRadioButton *rb)
 {
   if (!rb) return NULL;
-  return rb->label;
+  return rb->text;
 }
 
 ZuiWidget *zui_radiobutton_as_widget(ZuiRadioButton *rb)
@@ -1493,11 +1492,6 @@ ZuiWidget *zui_textinput_as_widget(ZuiTextInput *input)
   return (ZuiWidget *)input;
 }
 
-ZuiWidget *zui_textinput_new(const char *placeholder)
-{
-  return (ZuiWidget *)zui_textinput_create(placeholder);
-}
-
 typedef void (*ZuiScrollViewCallback)(ZuiScrollView *sv, float x, float y,
                                        void *user_data);
 
@@ -1694,11 +1688,6 @@ void zui_scrollview_on_scroll(ZuiScrollView *sv, ZuiScrollViewCallback callback,
 ZuiWidget *zui_scrollview_as_widget(ZuiScrollView *sv)
 {
   return (ZuiWidget *)sv;
-}
-
-ZuiWidget *zui_scrollview_new(void)
-{
-  return (ZuiWidget *)zui_scrollview_create();
 }
 
 struct ZuiScroller {
@@ -1985,11 +1974,6 @@ void zui_scroller_on_change(ZuiScroller *scroller, ZuiScrollerCallback callback,
 ZuiWidget *zui_scroller_as_widget(ZuiScroller *scroller)
 {
   return (ZuiWidget *)scroller;
-}
-
-ZuiWidget *zui_scroller_new(bool vertical)
-{
-  return (ZuiWidget *)zui_scroller_create(vertical);
 }
 
 struct ZuiSplitView {
@@ -2495,11 +2479,6 @@ ZuiWidget *zui_splitview_as_widget(ZuiSplitView *sv)
   return (ZuiWidget *)sv;
 }
 
-ZuiWidget *zui_splitview_new(bool vertical)
-{
-  return (ZuiWidget *)zui_splitview_create(vertical);
-}
-
 static ZuiFont *g_default_font = NULL;
 
 static ZuiFont *get_default_font(void)
@@ -2544,118 +2523,113 @@ ZuiFont *zui_font_create(void)
   return font;
 }
 
-ZuiLabel *zui_label_create(const char *text)
+ZuiText *zui_text_create(const char *content)
 {
-  ZuiLabel *label = (ZuiLabel *)zui_widget_create(
-    sizeof(ZuiLabel), ZUI_WIDGET_LABEL, &label_vtable);
-  if (!label) return NULL;
+  ZuiText *text = (ZuiText *)zui_widget_create(
+    sizeof(ZuiText), ZUI_WIDGET_TEXT, &text_vtable);
+  if (!text) return NULL;
 
-  label->text = text ? strdup(text) : NULL;
-  label->text_color = ZUI_COLOR_HEX(0xffffff);
-  label->font = get_default_font();
-  label->owns_font = false;
+  text->text = content ? strdup(content) : NULL;
+  text->text_color = ZUI_COLOR_HEX(0xffffff);
+  text->font = get_default_font();
+  text->owns_font = false;
 
-  if (label->font && text) {
-    label->base.preferred_size.width = zui_font_text_width(label->font, text) + 16;
-    label->base.preferred_size.height = zui_font_text_height(label->font, text) + 8;
+  if (text->font && content) {
+    text->base.preferred_size.width = zui_font_text_width(text->font, content) + 16;
+    text->base.preferred_size.height = zui_font_text_height(text->font, content) + 8;
   } else {
-    size_t len = text ? strlen(text) : 0;
-    label->base.preferred_size.width = (float)(len * 8 + 16);
-    label->base.preferred_size.height = 24.0f;
+    size_t len = content ? strlen(content) : 0;
+    text->base.preferred_size.width = (float)(len * 8 + 16);
+    text->base.preferred_size.height = 24.0f;
   }
 
-  return label;
+  return text;
 }
 
-void zui_label_set_size(ZuiLabel *label, float size)
+void zui_text_set_size(ZuiText *text, float size)
 {
-  if (!label) return;
+  if (!text) return;
 
   if (size < 9.0f) size = 9.0f;
   else if (size > 107.0f) size = 100.0f;
 
-  if (label->font && fabsf(label->font->size - size) < 0.5f) {
+  if (text->font && fabsf(text->font->size - size) < 0.5f) {
     return;
   }
 
-  if (label->font == g_default_font) {
-    label->font = zui_font_create();
-    label->owns_font = true;
+  if (text->font == g_default_font) {
+    text->font = zui_font_create();
+    text->owns_font = true;
   }
 
-  if (label->font) {
-    zui_texture_destroy(&label->font->atlas);
-    if (!init_font(label->font, label->font->font_data, size)) {
-      free(label->font->font_data);
+  if (text->font) {
+    zui_texture_destroy(&text->font->atlas);
+    if (!init_font(text->font, text->font->font_data, size)) {
+      free(text->font->font_data);
     }
   }
 
-  if (label->font && label->text) {
-    label->base.preferred_size.width = zui_font_text_width(label->font, label->text) + 16;
-    label->base.preferred_size.height = zui_font_text_height(label->font, label->text) + 8;
+  if (text->font && text->text) {
+    text->base.preferred_size.width = zui_font_text_width(text->font, text->text) + 16;
+    text->base.preferred_size.height = zui_font_text_height(text->font, text->text) + 8;
   } else {
-    size_t len = label->text ? strlen(label->text) : 0;
-    label->base.preferred_size.width = (float)(len * 8 + 16);
-    label->base.preferred_size.height = 24.0f;
+    size_t len = text->text ? strlen(text->text) : 0;
+    text->base.preferred_size.width = (float)(len * 8 + 16);
+    text->base.preferred_size.height = 24.0f;
   }
 }
 
-float zui_label_get_font_size(ZuiLabel *label)
+float zui_text_get_font_size(ZuiText *text)
 {
-  if (!label || !label->font) return 0.0f;
-  return label->font->size;
+  if (!text || !text->font) return 0.0f;
+  return text->font->size;
 }
 
-void zui_label_set_text(ZuiLabel *label, const char *text)
+void zui_text_set_content(ZuiText *text, const char *content)
 {
-  if (!label) return;
-  free(label->text);
-  label->text = text ? strdup(text) : NULL;
+  if (!text) return;
+  free(text->text);
+  text->text = content ? strdup(content) : NULL;
 
-  if (label->font && text) {
-    label->base.preferred_size.width = zui_font_text_width(label->font, text) + 16;
-    label->base.preferred_size.height = zui_font_text_height(label->font, text) + 8;
+  if (text->font && content) {
+    text->base.preferred_size.width = zui_font_text_width(text->font, content) + 16;
+    text->base.preferred_size.height = zui_font_text_height(text->font, content) + 8;
   } else {
-    size_t len = text ? strlen(text) : 0;
-    label->base.preferred_size.width = (float)(len * 8 + 16);
-    label->base.preferred_size.height = 24.0f;
+    size_t len = content ? strlen(content) : 0;
+    text->base.preferred_size.width = (float)(len * 8 + 16);
+    text->base.preferred_size.height = 24.0f;
   }
 }
 
-void zui_label_set_font(ZuiLabel *label, ZuiFont *font)
+void zui_text_set_font(ZuiText *text, ZuiFont *font)
 {
-  if (!label) return;
-  if (label->owns_font && label->font) {
-    zui_font_destroy(label->font);
+  if (!text) return;
+  if (text->owns_font && text->font) {
+    zui_font_destroy(text->font);
   }
-  label->font = font;
-  label->owns_font = false;
+  text->font = font;
+  text->owns_font = false;
 
-  if (label->font && label->text) {
-    label->base.preferred_size.width = zui_font_text_width(label->font, label->text) + 16;
-    label->base.preferred_size.height = zui_font_text_height(label->font, label->text) + 8;
+  if (text->font && text->text) {
+    text->base.preferred_size.width = zui_font_text_width(text->font, text->text) + 16;
+    text->base.preferred_size.height = zui_font_text_height(text->font, text->text) + 8;
   }
 }
 
-void zui_label_set_color(ZuiLabel *label, ZuiColor color)
+void zui_text_set_color(ZuiText *text, ZuiColor color)
 {
-  if (!label) return;
-  label->text_color = color;
+  if (!text) return;
+  text->text_color = color;
 }
 
-const char *zui_label_get_text(ZuiLabel *label)
+const char *zui_text_get_text(ZuiText *text)
 {
-  return label ? label->text : NULL;
+  return text ? text->text : NULL;
 }
 
-ZuiWidget *zui_label_as_widget(ZuiLabel *label)
+ZuiWidget *zui_text_as_widget(ZuiText *text)
 {
-  return (ZuiWidget *)label;
-}
-
-ZuiWidget *zui_label_new(const char *text)
-{
-  return (ZuiWidget *)zui_label_create(text);
+  return (ZuiWidget *)text;
 }
 
 static void close_button_click(ZuiWidget *widget, void *user_data)
@@ -2705,12 +2679,12 @@ ZuiWidget *zui_window_close_button(ZuiWindow *window)
 ZuiWidget *zui_window_minimize_button(ZuiWindow *window)
 {
   ZuiIconButton *btn = create_icon_button("res:/zui/icons/minimize.svg",
-                                           12.0f, ZUI_COLOR_RGB(0.9f, 0.9f, 0.9f));
+                                           16.0f, ZUI_COLOR_HEX(0xffffff));
   if (!btn) return NULL;
 
-  btn->base.normal_color = ZUI_COLOR_HEX(0x3d3d3d);
-  btn->base.hover_color = ZUI_COLOR_HEX(0x4d4d4d);
-  btn->base.pressed_color = ZUI_COLOR_HEX(0x2d2d2d);
+  btn->base.normal_color = ZUI_COLOR_HEX(0x182449);
+  btn->base.hover_color = ZUI_COLOR_HEX(0x1D2E62);
+  btn->base.pressed_color = ZUI_COLOR_HEX(0x11131F);
 
   btn->base.base.preferred_size.width = 20.0f;
   btn->base.base.preferred_size.height = 20.0f;
@@ -2727,9 +2701,9 @@ ZuiWidget *zui_window_maximize_button(ZuiWindow *window)
   if (!btn) return NULL;
 
   btn->base.text = NULL;
-  btn->base.normal_color = ZUI_COLOR_HEX(0x3d3d3d);
-  btn->base.hover_color = ZUI_COLOR_HEX(0x4d4d4d);
-  btn->base.pressed_color = ZUI_COLOR_HEX(0x2d2d2d);
+  btn->base.normal_color = ZUI_COLOR_HEX(0x182449);
+  btn->base.hover_color = ZUI_COLOR_HEX(0x1D2E62);
+  btn->base.pressed_color = ZUI_COLOR_HEX(0x11131F);
 
   btn->base.base.preferred_size.width = 20.0f;
   btn->base.base.preferred_size.height = 20.0f;
@@ -2737,7 +2711,7 @@ ZuiWidget *zui_window_maximize_button(ZuiWindow *window)
   btn->base.base.cursor = ZUI_CURSOR_POINTER;
 
   btn->icon_size = 12.0f;
-  btn->icon_color = ZUI_COLOR_RGB(1.0f, 1.0f, 1.0f);
+  btn->icon_color = ZUI_COLOR_HEX(0xffffff);
   btn->window = window;
 
   btn->maximize_icon = load_icon_resource("res:/zui/icons/maximize.svg");
@@ -2761,7 +2735,7 @@ ZuiWidget *zui_window_maximize_button(ZuiWindow *window)
 ZuiWidget *zui_window_hide_button(ZuiWindow *window)
 {
   ZuiIconButton *btn = create_icon_button("res:/zui/icons/hidden.svg",
-                                           12.0f, ZUI_COLOR_RGB(1.0f, 1.0f, 1.0f));
+                                           16.0f, ZUI_COLOR_HEX(0xffffff));
   if (!btn) return NULL;
 
   btn->base.normal_color = ZUI_COLOR_HEX(0x3d3d3d);
@@ -2979,11 +2953,6 @@ void zui_slider_on_change(ZuiSlider *slider, ZuiSliderCallback callback,
 ZuiWidget *zui_slider_as_widget(ZuiSlider *slider)
 {
   return (ZuiWidget *)slider;
-}
-
-ZuiWidget *zui_slider_new(float min, float max, float value)
-{
-  return (ZuiWidget *)zui_slider_create(min, max, value);
 }
 
 #define ZUI_DROPDOWN_MAX_ITEMS 64
@@ -3366,11 +3335,6 @@ ZuiWidget *zui_dropdown_as_widget(ZuiDropdown *dropdown)
   return (ZuiWidget *)dropdown;
 }
 
-ZuiWidget *zui_dropdown_new(const char *placeholder)
-{
-  return (ZuiWidget *)zui_dropdown_create(placeholder);
-}
-
 struct ZuiProgressBar {
   ZuiWidget base;
   float value;
@@ -3462,11 +3426,6 @@ void zui_progressbar_set_corner_radius(ZuiProgressBar *bar, float radius)
 ZuiWidget *zui_progressbar_as_widget(ZuiProgressBar *bar)
 {
   return (ZuiWidget *)bar;
-}
-
-ZuiWidget *zui_progressbar_new(void)
-{
-  return (ZuiWidget *)zui_progressbar_create();
 }
 
 /* ========== GridView ========== */
@@ -3778,16 +3737,11 @@ ZuiWidget *zui_gridview_as_widget(ZuiGridView *gv)
   return (ZuiWidget *)gv;
 }
 
-ZuiWidget *zui_gridview_new(int columns)
-{
-  return (ZuiWidget *)zui_gridview_create(columns);
-}
-
 /* ========== MenuItem ========== */
 
 struct ZuiMenuItem {
   ZuiWidget base;
-  char *label;
+  char *text;
   char *shortcut;
   bool enabled;
   bool is_separator;
@@ -3833,10 +3787,10 @@ static void menuitem_draw(ZuiWidget *widget, ZuiRenderer *renderer)
     text_x += item->icon_size + 8;
   }
 
-  if (item->font && item->label) {
+  if (item->font && item->text) {
     float text_h = zui_font_text_height(item->font, "Ay");
     float text_y = widget->bounds.y + (widget->bounds.height - text_h) / 2;
-    zui_font_render_text(item->font, renderer, text_x, text_y, item->label, text_col);
+    zui_font_render_text(item->font, renderer, text_x, text_y, item->text, text_col);
   }
 
   if (item->font && item->shortcut) {
@@ -3852,7 +3806,7 @@ static void menuitem_draw(ZuiWidget *widget, ZuiRenderer *renderer)
 static void menuitem_destroy(ZuiWidget *widget)
 {
   ZuiMenuItem *item = (ZuiMenuItem *)widget;
-  free(item->label);
+  free(item->text);
   free(item->shortcut);
   if (item->icon_texture.id) {
     zui_texture_destroy(&item->icon_texture);
@@ -3867,13 +3821,13 @@ static const ZuiWidgetVTable menuitem_vtable = {
   .destroy = menuitem_destroy,
 };
 
-ZuiMenuItem *zui_menuitem_create(const char *label)
+ZuiMenuItem *zui_menuitem_create(const char *text)
 {
   ZuiMenuItem *item = (ZuiMenuItem *)zui_widget_create(
     sizeof(ZuiMenuItem), ZUI_WIDGET_MENUITEM, &menuitem_vtable);
   if (!item) return NULL;
 
-  item->label = label ? strdup(label) : NULL;
+  item->text = text ? strdup(text) : NULL;
   item->shortcut = NULL;
   item->enabled = true;
   item->is_separator = false;
@@ -3899,7 +3853,7 @@ static ZuiMenuItem *menuitem_create_separator(void)
     sizeof(ZuiMenuItem), ZUI_WIDGET_MENUITEM, &menuitem_vtable);
   if (!item) return NULL;
 
-  item->label = NULL;
+  item->text = NULL;
   item->shortcut = NULL;
   item->enabled = false;
   item->is_separator = true;
@@ -3911,11 +3865,11 @@ static ZuiMenuItem *menuitem_create_separator(void)
   return item;
 }
 
-void zui_menuitem_set_label(ZuiMenuItem *item, const char *label)
+void zui_menuitem_set_text(ZuiMenuItem *item, const char *text)
 {
   if (!item) return;
-  free(item->label);
-  item->label = label ? strdup(label) : NULL;
+  free(item->text);
+  item->text = text ? strdup(text) : NULL;
 }
 
 void zui_menuitem_set_shortcut(ZuiMenuItem *item, const char *shortcut)
@@ -4230,12 +4184,12 @@ void zui_menu_add_item(ZuiMenu *menu, ZuiMenuItem *item)
   item->base.parent = (ZuiWidget *)menu;
 
   float max_w = menu->popup_width;
-  if (item->font && item->label) {
-    float label_w = zui_font_text_width(item->font, item->label) + 24;
+  if (item->font && item->text) {
+    float text_w = zui_font_text_width(item->font, item->text) + 24;
     if (item->shortcut) {
-      label_w += zui_font_text_width(item->font, item->shortcut) + 24;
+      text_w += zui_font_text_width(item->font, item->shortcut) + 24;
     }
-    if (label_w > max_w) max_w = label_w;
+    if (text_w > max_w) max_w = text_w;
   }
   menu->popup_width = max_w;
 }
@@ -4401,10 +4355,10 @@ struct ZuiPieChart {
   ZuiWidget base;
   float values[ZUI_PIECHART_MAX_SLICES];
   ZuiColor colors[ZUI_PIECHART_MAX_SLICES];
-  char *labels[ZUI_PIECHART_MAX_SLICES];
+  char *texts[ZUI_PIECHART_MAX_SLICES];
   size_t slice_count;
   float hole_radius;
-  bool show_labels;
+  bool show_texts;
   bool show_values;
   int hovered_slice;
   ZuiFont *font;
@@ -4461,33 +4415,33 @@ static void piechart_draw(ZuiWidget *widget, ZuiRenderer *renderer)
         start_angle, end_angle, color);
     }
 
-    if ((chart->show_labels || chart->show_values) && chart->font) {
+    if ((chart->show_texts || chart->show_values) && chart->font) {
       float mid_angle = start_angle + sweep / 2;
-      float label_radius = (chart->hole_radius > 0)
+      float text_radius = (chart->hole_radius > 0)
         ? (radius + chart->hole_radius) / 2
         : radius * 0.65f;
 
-      float lx = cx + cosf(mid_angle) * label_radius;
-      float ly = cy + sinf(mid_angle) * label_radius;
+      float lx = cx + cosf(mid_angle) * text_radius;
+      float ly = cy + sinf(mid_angle) * text_radius;
 
-      char label_buf[64];
-      if (chart->show_values && chart->labels[i] && chart->show_labels) {
-        snprintf(label_buf, sizeof(label_buf), "%s\n%.0f%%",
-                 chart->labels[i], (chart->values[i] / total) * 100);
+      char text_buf[64];
+      if (chart->show_values && chart->texts[i] && chart->show_texts) {
+        snprintf(text_buf, sizeof(text_buf), "%s\n%.0f%%",
+                 chart->texts[i], (chart->values[i] / total) * 100);
       } else if (chart->show_values) {
-        snprintf(label_buf, sizeof(label_buf), "%.0f%%",
+        snprintf(text_buf, sizeof(text_buf), "%.0f%%",
                  (chart->values[i] / total) * 100);
-      } else if (chart->labels[i]) {
-        snprintf(label_buf, sizeof(label_buf), "%s", chart->labels[i]);
+      } else if (chart->texts[i]) {
+        snprintf(text_buf, sizeof(text_buf), "%s", chart->texts[i]);
       } else {
-        label_buf[0] = '\0';
+        text_buf[0] = '\0';
       }
 
-      if (label_buf[0]) {
-        float tw = zui_font_text_width(chart->font, label_buf);
-        float th = zui_font_text_height(chart->font, label_buf);
+      if (text_buf[0]) {
+        float tw = zui_font_text_width(chart->font, text_buf);
+        float th = zui_font_text_height(chart->font, text_buf);
         zui_font_render_text(chart->font, renderer,
-          lx - tw / 2, ly - th / 2, label_buf, ZUI_COLOR_HEX(0xffffff));
+          lx - tw / 2, ly - th / 2, text_buf, ZUI_COLOR_HEX(0xffffff));
       }
     }
 
@@ -4590,7 +4544,7 @@ static void piechart_destroy(ZuiWidget *widget)
 {
   ZuiPieChart *chart = (ZuiPieChart *)widget;
   for (size_t i = 0; i < chart->slice_count; i++) {
-    free(chart->labels[i]);
+    free(chart->texts[i]);
   }
 }
 
@@ -4611,7 +4565,7 @@ ZuiPieChart *zui_piechart_create(void)
 
   chart->slice_count = 0;
   chart->hole_radius = 0;
-  chart->show_labels = false;
+  chart->show_texts = false;
   chart->show_values = false;
   chart->hovered_slice = -1;
   chart->font = get_default_font();
@@ -4624,7 +4578,7 @@ ZuiPieChart *zui_piechart_create(void)
   chart->base.preferred_size.height = 100.0f;
 
   for (size_t i = 0; i < ZUI_PIECHART_MAX_SLICES; i++) {
-    chart->labels[i] = NULL;
+    chart->texts[i] = NULL;
   }
 
   return chart;
@@ -4643,17 +4597,17 @@ void zui_piechart_add_slice(ZuiPieChart *chart, float value, ZuiColor color)
   if (!chart || chart->slice_count >= ZUI_PIECHART_MAX_SLICES) return;
   chart->values[chart->slice_count] = value;
   chart->colors[chart->slice_count] = color;
-  chart->labels[chart->slice_count] = NULL;
+  chart->texts[chart->slice_count] = NULL;
   chart->slice_count++;
 }
 
-void zui_piechart_add_slice_labeled(ZuiPieChart *chart, float value,
-                                     ZuiColor color, const char *label)
+void zui_piechart_add_slice_texted(ZuiPieChart *chart, float value,
+                                     ZuiColor color, const char *text)
 {
   if (!chart || chart->slice_count >= ZUI_PIECHART_MAX_SLICES) return;
   chart->values[chart->slice_count] = value;
   chart->colors[chart->slice_count] = color;
-  chart->labels[chart->slice_count] = label ? strdup(label) : NULL;
+  chart->texts[chart->slice_count] = text ? strdup(text) : NULL;
   chart->slice_count++;
 }
 
@@ -4661,8 +4615,8 @@ void zui_piechart_clear(ZuiPieChart *chart)
 {
   if (!chart) return;
   for (size_t i = 0; i < chart->slice_count; i++) {
-    free(chart->labels[i]);
-    chart->labels[i] = NULL;
+    free(chart->texts[i]);
+    chart->texts[i] = NULL;
   }
   chart->slice_count = 0;
 }
@@ -4672,9 +4626,9 @@ void zui_piechart_set_hole_radius(ZuiPieChart *chart, float radius)
   if (chart) chart->hole_radius = radius;
 }
 
-void zui_piechart_set_show_labels(ZuiPieChart *chart, bool show)
+void zui_piechart_set_show_texts(ZuiPieChart *chart, bool show)
 {
-  if (chart) chart->show_labels = show;
+  if (chart) chart->show_texts = show;
 }
 
 void zui_piechart_set_show_values(ZuiPieChart *chart, bool show)
@@ -4709,11 +4663,6 @@ ZuiWidget *zui_piechart_as_widget(ZuiPieChart *chart)
   return (ZuiWidget *)chart;
 }
 
-ZuiWidget *zui_piechart_new(void)
-{
-  return (ZuiWidget *)zui_piechart_create();
-}
-
 /* ========== BarChart ========== */
 
 #define ZUI_BARCHART_MAX_BARS 32
@@ -4725,12 +4674,12 @@ struct ZuiBarChart {
   ZuiWidget base;
   float values[ZUI_BARCHART_MAX_BARS];
   ZuiColor colors[ZUI_BARCHART_MAX_BARS];
-  char *labels[ZUI_BARCHART_MAX_BARS];
+  char *texts[ZUI_BARCHART_MAX_BARS];
   size_t bar_count;
   float max_value;
   float bar_spacing;
   float corner_radius;
-  bool show_labels;
+  bool show_texts;
   bool show_values;
   int hovered_bar;
   ZuiFont *font;
@@ -4786,27 +4735,27 @@ static void barchart_draw(ZuiWidget *widget, ZuiRenderer *renderer)
         color);
     }
 
-    if ((chart->show_labels || chart->show_values) && chart->font) {
-      char label_buf[64];
-      if (chart->show_values && chart->labels[i] && chart->show_labels) {
-        snprintf(label_buf, sizeof(label_buf), "%.0f\n%s",
-                 (double)chart->values[i], chart->labels[i]);
+    if ((chart->show_texts || chart->show_values) && chart->font) {
+      char text_buf[64];
+      if (chart->show_values && chart->texts[i] && chart->show_texts) {
+        snprintf(text_buf, sizeof(text_buf), "%.0f\n%s",
+                 (double)chart->values[i], chart->texts[i]);
       } else if (chart->show_values) {
-        snprintf(label_buf, sizeof(label_buf), "%.0f", (double)chart->values[i]);
-      } else if (chart->labels[i]) {
-        snprintf(label_buf, sizeof(label_buf), "%s", chart->labels[i]);
+        snprintf(text_buf, sizeof(text_buf), "%.0f", (double)chart->values[i]);
+      } else if (chart->texts[i]) {
+        snprintf(text_buf, sizeof(text_buf), "%s", chart->texts[i]);
       } else {
-        label_buf[0] = '\0';
+        text_buf[0] = '\0';
       }
 
-      if (label_buf[0]) {
-        float tw = zui_font_text_width(chart->font, label_buf);
-        float th = zui_font_text_height(chart->font, label_buf);
+      if (text_buf[0]) {
+        float tw = zui_font_text_width(chart->font, text_buf);
+        float th = zui_font_text_height(chart->font, text_buf);
         float lx = x + (bar_width - tw) / 2;
         float ly = y - th - 2;
         if (ly < widget->bounds.y) ly = y + 2;
         zui_font_render_text(chart->font, renderer,
-          lx, ly, label_buf, ZUI_COLOR_HEX(0xffffff));
+          lx, ly, text_buf, ZUI_COLOR_HEX(0xffffff));
       }
     }
   }
@@ -4884,7 +4833,7 @@ static void barchart_destroy(ZuiWidget *widget)
 {
   ZuiBarChart *chart = (ZuiBarChart *)widget;
   for (size_t i = 0; i < chart->bar_count; i++) {
-    free(chart->labels[i]);
+    free(chart->texts[i]);
   }
 }
 
@@ -4907,7 +4856,7 @@ ZuiBarChart *zui_barchart_create(void)
   chart->max_value = 0;
   chart->bar_spacing = 4.0f;
   chart->corner_radius = 3.0f;
-  chart->show_labels = false;
+  chart->show_texts = false;
   chart->show_values = false;
   chart->hovered_bar = -1;
   chart->font = get_default_font();
@@ -4920,7 +4869,7 @@ ZuiBarChart *zui_barchart_create(void)
   chart->base.preferred_size.height = 100.0f;
 
   for (size_t i = 0; i < ZUI_BARCHART_MAX_BARS; i++) {
-    chart->labels[i] = NULL;
+    chart->texts[i] = NULL;
   }
 
   return chart;
@@ -4939,17 +4888,17 @@ void zui_barchart_add_bar(ZuiBarChart *chart, float value, ZuiColor color)
   if (!chart || chart->bar_count >= ZUI_BARCHART_MAX_BARS) return;
   chart->values[chart->bar_count] = value;
   chart->colors[chart->bar_count] = color;
-  chart->labels[chart->bar_count] = NULL;
+  chart->texts[chart->bar_count] = NULL;
   chart->bar_count++;
 }
 
-void zui_barchart_add_bar_labeled(ZuiBarChart *chart, float value,
-                                   ZuiColor color, const char *label)
+void zui_barchart_add_bar_texted(ZuiBarChart *chart, float value,
+                                   ZuiColor color, const char *text)
 {
   if (!chart || chart->bar_count >= ZUI_BARCHART_MAX_BARS) return;
   chart->values[chart->bar_count] = value;
   chart->colors[chart->bar_count] = color;
-  chart->labels[chart->bar_count] = label ? strdup(label) : NULL;
+  chart->texts[chart->bar_count] = text ? strdup(text) : NULL;
   chart->bar_count++;
 }
 
@@ -4957,8 +4906,8 @@ void zui_barchart_clear(ZuiBarChart *chart)
 {
   if (!chart) return;
   for (size_t i = 0; i < chart->bar_count; i++) {
-    free(chart->labels[i]);
-    chart->labels[i] = NULL;
+    free(chart->texts[i]);
+    chart->texts[i] = NULL;
   }
   chart->bar_count = 0;
 }
@@ -4978,9 +4927,9 @@ void zui_barchart_set_corner_radius(ZuiBarChart *chart, float radius)
   if (chart) chart->corner_radius = radius;
 }
 
-void zui_barchart_set_show_labels(ZuiBarChart *chart, bool show)
+void zui_barchart_set_show_texts(ZuiBarChart *chart, bool show)
 {
-  if (chart) chart->show_labels = show;
+  if (chart) chart->show_texts = show;
 }
 
 void zui_barchart_set_show_values(ZuiBarChart *chart, bool show)
@@ -5013,11 +4962,6 @@ int zui_barchart_get_hovered_bar(ZuiBarChart *chart)
 ZuiWidget *zui_barchart_as_widget(ZuiBarChart *chart)
 {
   return (ZuiWidget *)chart;
-}
-
-ZuiWidget *zui_barchart_new(void)
-{
-  return (ZuiWidget *)zui_barchart_create();
 }
 
 /* ========== LineChart ========== */
@@ -5149,11 +5093,6 @@ void zui_linechart_set_show_points(ZuiLineChart *chart, bool show)
 ZuiWidget *zui_linechart_as_widget(ZuiLineChart *chart)
 {
   return (ZuiWidget *)chart;
-}
-
-ZuiWidget *zui_linechart_new(void)
-{
-  return (ZuiWidget *)zui_linechart_create();
 }
 
 /* ========== CircularProgress ========== */
@@ -5349,9 +5288,4 @@ void zui_circularprogress_on_click(ZuiCircularProgress *cp,
 ZuiWidget *zui_circularprogress_as_widget(ZuiCircularProgress *cp)
 {
   return (ZuiWidget *)cp;
-}
-
-ZuiWidget *zui_circularprogress_new(void)
-{
-  return (ZuiWidget *)zui_circularprogress_create();
 }

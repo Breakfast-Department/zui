@@ -7,6 +7,7 @@ typedef struct ZuiColor {
 
 #define ZUI_COLOR(r, g, b, a) ((ZuiColor){(r), (g), (b), (a)})
 #define ZUI_COLOR_RGB(r, g, b) ZUI_COLOR((r), (g), (b), 1.0f)
+#define ZUI_COLOR_RGBA(r, g, b, a) ZUI_COLOR((r), (g), (b), (a))
 #define ZUI_COLOR_HEX(hex) ZUI_COLOR( \
   (((hex) >> 16) & 0xFF) / 255.0f, \
   (((hex) >> 8) & 0xFF) / 255.0f, \

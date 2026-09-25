@@ -10,6 +10,10 @@ project(zui
 set(ZUI_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
 set(ZUI_VERSION_MINOR ${PROJECT_VERSION_MINOR})
 set(ZUI_VERSION_PATCH ${PROJECT_VERSION_PATCH})
+set(ZUI_RESCOMPILER
+  "${CMAKE_CURRENT_SOURCE_DIR}/tools/rescompile.py"
+  CACHE INTERNAL "ZUI resource compiler"
+)
 
 # Generate version header
 configure_file(
@@ -87,14 +91,14 @@ add_custom_command(
   OUTPUT ${ZUI_INTERNAL_RES_H} ${ZUI_INTERNAL_RES_C}
   COMMAND ${CMAKE_COMMAND} -E make_directory ${ZUI_INTERNAL_RES_DIR}
   COMMAND ${Python3_EXECUTABLE}
-    ${CMAKE_CURRENT_SOURCE_DIR}/tools/rescompile.py
+    ${ZUI_RESCOMPILER}
     ${CMAKE_CURRENT_SOURCE_DIR}/src/internal_resources.res
     -o zui_internal_resources
     -d ${ZUI_INTERNAL_RES_DIR}
     -p zui_internal
   DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/internal_resources.res
-    ${CMAKE_CURRENT_SOURCE_DIR}/tools/rescompile.py
+    ${ZUI_RESCOMPILER}
   COMMENT "Compiling ZUI internal resources"
   VERBATIM
 )
@@ -125,7 +129,7 @@ add_library(zui STATIC
 
   # Renderer - OpenGL
   src/renderer/opengl/egl_context.c
-  src/renderer/opengl/renderer.c
+  src/renderer/renderer.c
 
   # Video
   src/core/video.c
@@ -209,12 +213,12 @@ function(zui_compile_resources TARGET RES_FILE)
     OUTPUT ${GEN_HEADER} ${GEN_SOURCE}
     COMMAND ${CMAKE_COMMAND} -E make_directory ${GEN_DIR}
     COMMAND ${Python3_EXECUTABLE}
-      ${CMAKE_CURRENT_SOURCE_DIR}/tools/rescompile.py
+      ${ZUI_RESCOMPILER}
       ${RES_FILE}
       -o app_resources
       -d ${GEN_DIR}
       -p zui_app
-    DEPENDS ${RES_FILE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/rescompile.py
+    DEPENDS ${RES_FILE} ${ZUI_RESCOMPILER}
     COMMENT "Compiling resources: ${RES_FILE}"
     VERBATIM
   )
@@ -227,12 +231,12 @@ endfunction()
 option(ZUI_BUILD_EXAMPLES "Build example applications" ON)
 
 if(ZUI_BUILD_EXAMPLES)
-  add_executable(zui_example examples/main.c)
-  target_link_libraries(zui_example PRIVATE zui)
+  add_executable(Focsy examples/main.c)
+  target_link_libraries(Focsy PRIVATE zui)
 
   # Compile embedded resources
   if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/examples/resources.res")
-    zui_compile_resources(zui_example "${CMAKE_CURRENT_SOURCE_DIR}/examples/resources.res")
+    zui_compile_resources(Focsy "${CMAKE_CURRENT_SOURCE_DIR}/examples/resources.res")
   endif()
 
 endif()
