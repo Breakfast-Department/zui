@@ -436,6 +436,7 @@ ZuiTexture zui_texture_create(const uint8_t *data, int width, int height)
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
+
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0,
                GL_RGBA, GL_UNSIGNED_BYTE, data);
 
@@ -479,7 +480,7 @@ ZuiTexture zui_texture_create_empty(int width, int height)
 
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0,
@@ -489,15 +490,36 @@ ZuiTexture zui_texture_create_empty(int width, int height)
   return texture;
 }
 
-void zui_texture_update(ZuiTexture *texture, const uint8_t *data,
-                        int x, int y, int width, int height)
+void zui_texture_update(
+    ZuiTexture *texture,
+    const uint8_t *data,
+    int x,
+    int y,
+    int width,
+    int height)
 {
-  if (!texture || !texture->id || !data) return;
+    if (!texture || !texture->id || !data)
+        return;
 
-  glBindTexture(GL_TEXTURE_2D, texture->id);
-  glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, width, height,
-                  GL_RGBA, GL_UNSIGNED_BYTE, data);
-  glBindTexture(GL_TEXTURE_2D, 0);
+    glBindTexture(GL_TEXTURE_2D, texture->id);
+
+    glTexSubImage2D(
+        GL_TEXTURE_2D,
+        0,
+        x,
+        y,
+        width,
+        height,
+        GL_RGBA,
+        GL_UNSIGNED_BYTE,
+        data
+    );
+
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+
 }
 
 void zui_renderer_draw_texture(ZuiRenderer *renderer, ZuiTexture *texture,
@@ -530,6 +552,7 @@ void zui_renderer_draw_texture(ZuiRenderer *renderer, ZuiTexture *texture,
   glBindTexture(GL_TEXTURE_2D, 0);
   glBindVertexArray(0);
   glUseProgram(0);
+
 }
 
 void zui_renderer_draw_glyph(ZuiRenderer *renderer, ZuiTexture *atlas,

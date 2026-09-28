@@ -8,5 +8,5 @@ Name: ZUI
 Description: @PROJECT_DESCRIPTION@
 Version: @PROJECT_VERSION@
 Requires: wayland-client wayland-egl egl
-Libs: -L${libdir} -lzui
+Libs: -L${libdir} -lzui -lglad -lwayland-cursor -lxkbcommon -lwebp -lOpenGL -lm -lpthread -ldl
 Cflags: -I${includedir}

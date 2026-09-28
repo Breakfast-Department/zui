@@ -1,3 +1,4 @@
+#include "zui/internal/wayland_platform.h"
 #include <zui/internal/window_internal.h>
 #include <zui/window.h>
 #include <zui/internal/font_internal.h>
@@ -518,6 +519,7 @@ void zui_window_set_corner_radius(ZuiWindow *window, float radius)
   window->content->corner_radius = radius - 0.5f;
   window->needs_redraw = true;
 }
+
 
 void zui_window_set_min_size(ZuiWindow *window, int width, int height)
 {

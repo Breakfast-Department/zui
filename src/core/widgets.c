@@ -5181,7 +5181,7 @@ ZuiCircularProgress *zui_circularprogress_create(void)
   if (!cp) return NULL;
 
   cp->value = 0;
-  cp->thickness = 8.0f;
+  cp->thickness = 18.0f;
   cp->track_color = ZUI_COLOR_HEX(0x333333);
   cp->fill_color = ZUI_COLOR_HEX(0x4a9eff);
   cp->text = NULL;

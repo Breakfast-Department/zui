@@ -6,10 +6,14 @@ project(zui
   LANGUAGES C
 )
 
-# Extract version components
+# =============================================================================
+# Version
+# =============================================================================
+
 set(ZUI_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
 set(ZUI_VERSION_MINOR ${PROJECT_VERSION_MINOR})
 set(ZUI_VERSION_PATCH ${PROJECT_VERSION_PATCH})
+
 set(ZUI_RESCOMPILER
   "${CMAKE_CURRENT_SOURCE_DIR}/tools/rescompile.py"
   CACHE INTERNAL "ZUI resource compiler"
@@ -22,11 +26,18 @@ configure_file(
   @ONLY
 )
 
+# =============================================================================
+# C Standard
+# =============================================================================
+
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Strict compiler warnings for development
+# =============================================================================
+# Compiler Warnings
+# =============================================================================
+
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
   add_compile_options(
     -Wall
@@ -38,76 +49,131 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
     -Wformat=2
     -Wno-unused-parameter
   )
+
   if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    add_compile_options(-g3 -O0)
+    add_compile_options(
+      -g3
+      -O0
+    )
   endif()
 endif()
 
-# Find Wayland
+# =============================================================================
+# Dependencies
+# =============================================================================
+
 find_package(PkgConfig REQUIRED)
+
+# Wayland
 pkg_check_modules(WAYLAND REQUIRED
   wayland-client
   wayland-egl
   wayland-cursor
 )
 
-# Find EGL and OpenGL
+# EGL
 pkg_check_modules(EGL REQUIRED egl)
+
+# XKB
 pkg_check_modules(XKB REQUIRED xkbcommon)
-find_package(OpenGL REQUIRED COMPONENTS OpenGL)
 
-# Optional: libmpv for video playback
-pkg_check_modules(MPV QUIET mpv)
-option(ZUI_VIDEO_MPV "Build libmpv video backend" ${MPV_FOUND})
-
-# WebP support
+# WebP
 pkg_check_modules(WEBP REQUIRED libwebp)
 
-# GLAD (vendored OpenGL/EGL loader)
+# OpenGL
+find_package(OpenGL REQUIRED COMPONENTS OpenGL)
+
+# Python
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+
+# =============================================================================
+# GLAD
+# =============================================================================
+
 add_library(glad STATIC
   external/glad/src/glad.c
   external/glad/src/egl.c
 )
-target_include_directories(glad PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/glad/include>
-  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-)
-target_link_libraries(glad PUBLIC ${CMAKE_DL_LIBS})
 
-# Suppress warnings for vendored code
+target_include_directories(glad
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/glad/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
+
+target_link_libraries(glad
+  PUBLIC
+    ${CMAKE_DL_LIBS}
+)
+
+# Suppress warnings for vendored GLAD
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(glad PRIVATE -w)
 endif()
 
-# Find Python for resource compiler
-find_package(Python3 COMPONENTS Interpreter REQUIRED)
+# =============================================================================
+# Internal Resources
+# =============================================================================
 
-# Generate internal resources for library
-set(ZUI_INTERNAL_RES_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/zui_internal")
-set(ZUI_INTERNAL_RES_H "${ZUI_INTERNAL_RES_DIR}/zui_internal_resources.h")
-set(ZUI_INTERNAL_RES_C "${ZUI_INTERNAL_RES_DIR}/zui_internal_resources.c")
+set(ZUI_INTERNAL_RES_DIR
+  "${CMAKE_CURRENT_BINARY_DIR}/generated/zui_internal"
+)
+
+set(ZUI_INTERNAL_RES_H
+  "${ZUI_INTERNAL_RES_DIR}/zui_internal_resources.h"
+)
+
+set(ZUI_INTERNAL_RES_C
+  "${ZUI_INTERNAL_RES_DIR}/zui_internal_resources.c"
+)
 
 add_custom_command(
-  OUTPUT ${ZUI_INTERNAL_RES_H} ${ZUI_INTERNAL_RES_C}
-  COMMAND ${CMAKE_COMMAND} -E make_directory ${ZUI_INTERNAL_RES_DIR}
-  COMMAND ${Python3_EXECUTABLE}
+  OUTPUT
+    ${ZUI_INTERNAL_RES_H}
+    ${ZUI_INTERNAL_RES_C}
+
+  COMMAND
+    ${CMAKE_COMMAND}
+    -E
+    make_directory
+    ${ZUI_INTERNAL_RES_DIR}
+
+  COMMAND
+    ${Python3_EXECUTABLE}
     ${ZUI_RESCOMPILER}
     ${CMAKE_CURRENT_SOURCE_DIR}/src/internal_resources.res
     -o zui_internal_resources
     -d ${ZUI_INTERNAL_RES_DIR}
     -p zui_internal
+
   DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/internal_resources.res
     ${ZUI_RESCOMPILER}
+
   COMMENT "Compiling ZUI internal resources"
+
   VERBATIM
 )
 
-add_custom_target(zui_internal_resources DEPENDS ${ZUI_INTERNAL_RES_H} ${ZUI_INTERNAL_RES_C})
+add_custom_target(
+  zui_internal_resources
+  DEPENDS
+    ${ZUI_INTERNAL_RES_H}
+    ${ZUI_INTERNAL_RES_C}
+)
 
-# ZUI library
+# =============================================================================
+# ZUI Library
+# =============================================================================
+
 add_library(zui STATIC
+
+  # ---------------------------------------------------------------------------
   # Core
+  # ---------------------------------------------------------------------------
+
+  src/zui.c
+
   src/core/app.c
   src/core/window.c
   src/core/window_decoration.c
@@ -122,121 +188,240 @@ add_library(zui STATIC
   src/core/shape.c
   src/core/resource.c
 
+  # ---------------------------------------------------------------------------
   # Platform - Wayland
+  # ---------------------------------------------------------------------------
+
   src/platform/wayland/wayland_platform.c
+
   src/platform/wayland/protocols/xdg-shell-protocol.c
   src/platform/wayland/protocols/xdg-decoration-unstable-v1-protocol.c
 
+  # ---------------------------------------------------------------------------
   # Renderer - OpenGL
+  # ---------------------------------------------------------------------------
+
   src/renderer/opengl/egl_context.c
   src/renderer/renderer.c
 
-  # Video
-  src/core/video.c
-  src/video/video_backend.c
+  # ---------------------------------------------------------------------------
+  # Generated Resources
+  # ---------------------------------------------------------------------------
 
-  # Audio
-  src/audio/audio.c
-
-  # Generated internal resources
   ${ZUI_INTERNAL_RES_C}
 )
 
-add_dependencies(zui zui_internal_resources)
+add_dependencies(
+  zui
+  zui_internal_resources
+)
 
-# Video backends
-if(ZUI_VIDEO_MPV)
-  target_sources(zui PRIVATE src/video/backends/mpv_backend.c)
-  target_compile_definitions(zui PRIVATE ZUI_HAS_MPV)
-  target_link_libraries(zui PRIVATE ${MPV_LIBRARIES})
-  target_include_directories(zui PRIVATE ${MPV_INCLUDE_DIRS})
-endif()
+# =============================================================================
+# Include Directories
+# =============================================================================
 
 target_include_directories(zui
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
     $<INSTALL_INTERFACE:include>
+
   PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/external/glad/include
     ${CMAKE_CURRENT_SOURCE_DIR}/external
-    ${CMAKE_CURRENT_SOURCE_DIR}/external/miniaudio
+
     ${ZUI_INTERNAL_RES_DIR}
+
     ${WAYLAND_INCLUDE_DIRS}
     ${EGL_INCLUDE_DIRS}
     ${XKB_INCLUDE_DIRS}
     ${WEBP_INCLUDE_DIRS}
 )
 
+# =============================================================================
+# Link Libraries
+# =============================================================================
+
 target_link_libraries(zui
   PUBLIC
     glad
-  PRIVATE
+
     ${WAYLAND_LIBRARIES}
     ${EGL_LIBRARIES}
     ${XKB_LIBRARIES}
     ${WEBP_LIBRARIES}
+
     OpenGL::OpenGL
+
     m
     pthread
     dl
 )
 
-target_compile_definitions(zui PRIVATE
-  $<$<CONFIG:Debug>:ZUI_DEBUG>
+# =============================================================================
+# Compile Definitions
+# =============================================================================
+
+target_compile_definitions(zui
+  PRIVATE
+    $<$<CONFIG:Debug>:ZUI_DEBUG>
 )
 
-# Suppress warnings for vendored headers (nanosvg, stb_truetype)
-set_source_files_properties(src/core/icon.c PROPERTIES
-  COMPILE_FLAGS "-Wno-sign-conversion -Wno-conversion -Wno-double-promotion -Wno-shadow -Wno-sign-compare"
-)
-set_source_files_properties(src/core/font.c PROPERTIES
-  COMPILE_FLAGS "-Wno-sign-conversion -Wno-conversion -Wno-double-promotion -Wno-shadow -Wno-sign-compare -Wno-unused-function"
-)
-set_source_files_properties(src/core/image.c PROPERTIES
-  COMPILE_FLAGS "-Wno-sign-conversion -Wno-conversion -Wno-double-promotion -Wno-shadow -Wno-sign-compare -Wno-unused-function"
-)
-set_source_files_properties(src/audio/audio.c PROPERTIES
-  COMPILE_FLAGS "-Wno-sign-conversion -Wno-conversion -Wno-double-promotion -Wno-shadow -Wno-sign-compare -Wno-unused-function -Wno-pedantic"
-)
+# =============================================================================
+# Vendored Code Warning Suppression
+# =============================================================================
 
-# Resource compiler function for applications
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+
+  set_source_files_properties(
+    src/core/icon.c
+    PROPERTIES
+      COMPILE_FLAGS
+        "-Wno-sign-conversion -Wno-conversion -Wno-double-promotion -Wno-shadow -Wno-sign-compare"
+  )
+
+  set_source_files_properties(
+    src/core/font.c
+    PROPERTIES
+      COMPILE_FLAGS
+        "-Wno-sign-conversion -Wno-conversion -Wno-double-promotion -Wno-shadow -Wno-sign-compare -Wno-unused-function"
+  )
+
+  set_source_files_properties(
+    src/core/image.c
+    PROPERTIES
+      COMPILE_FLAGS
+        "-Wno-sign-conversion -Wno-conversion -Wno-double-promotion -Wno-shadow -Wno-sign-compare -Wno-unused-function"
+  )
+
+endif()
+
+# =============================================================================
+# Resource Compiler Function
+# =============================================================================
+
 function(zui_compile_resources TARGET RES_FILE)
-  get_filename_component(RES_NAME ${RES_FILE} NAME_WE)
-  get_filename_component(RES_DIR ${RES_FILE} DIRECTORY)
 
-  set(GEN_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/${TARGET}")
-  set(GEN_HEADER "${GEN_DIR}/app_resources.h")
-  set(GEN_SOURCE "${GEN_DIR}/app_resources.c")
+  get_filename_component(
+    RES_NAME
+    ${RES_FILE}
+    NAME_WE
+  )
+
+  get_filename_component(
+    RES_DIR
+    ${RES_FILE}
+    DIRECTORY
+  )
+
+  set(
+    GEN_DIR
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/${TARGET}"
+  )
+
+  set(
+    GEN_HEADER
+    "${GEN_DIR}/app_resources.h"
+  )
+
+  set(
+    GEN_SOURCE
+    "${GEN_DIR}/app_resources.c"
+  )
 
   add_custom_command(
-    OUTPUT ${GEN_HEADER} ${GEN_SOURCE}
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${GEN_DIR}
-    COMMAND ${Python3_EXECUTABLE}
+    OUTPUT
+      ${GEN_HEADER}
+      ${GEN_SOURCE}
+
+    COMMAND
+      ${CMAKE_COMMAND}
+      -E
+      make_directory
+      ${GEN_DIR}
+
+    COMMAND
+      ${Python3_EXECUTABLE}
       ${ZUI_RESCOMPILER}
       ${RES_FILE}
       -o app_resources
       -d ${GEN_DIR}
       -p zui_app
-    DEPENDS ${RES_FILE} ${ZUI_RESCOMPILER}
-    COMMENT "Compiling resources: ${RES_FILE}"
+
+    DEPENDS
+      ${RES_FILE}
+      ${ZUI_RESCOMPILER}
+
+    COMMENT
+      "Compiling resources: ${RES_FILE}"
+
     VERBATIM
   )
 
-  target_sources(${TARGET} PRIVATE ${GEN_SOURCE})
-  target_include_directories(${TARGET} PRIVATE ${GEN_DIR})
+  target_sources(
+    ${TARGET}
+    PRIVATE
+      ${GEN_SOURCE}
+  )
+
+  target_include_directories(
+    ${TARGET}
+    PRIVATE
+      ${GEN_DIR}
+  )
+
 endfunction()
 
+# =============================================================================
+# ZUI CLI
+# =============================================================================
+
+add_executable(
+  zuic
+  tools/cli.c
+)
+
+target_include_directories(
+  zuic
+  PRIVATE
+    ${CMAKE_CURRENT_BINARY_DIR}/include
+)
+
+install(
+  TARGETS zuic
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+# =============================================================================
 # Examples
-option(ZUI_BUILD_EXAMPLES "Build example applications" ON)
+# =============================================================================
+
+option(
+  ZUI_BUILD_EXAMPLES
+  "Build example applications"
+  ON
+)
 
 if(ZUI_BUILD_EXAMPLES)
-  add_executable(Focsy examples/main.c)
-  target_link_libraries(Focsy PRIVATE zui)
 
-  # Compile embedded resources
+  add_executable(
+    Focsy
+    examples/main.c
+  )
+
+  target_link_libraries(
+    Focsy
+    PRIVATE
+      zui
+  )
+
   if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/examples/resources.res")
-    zui_compile_resources(Focsy "${CMAKE_CURRENT_SOURCE_DIR}/examples/resources.res")
+
+    zui_compile_resources(
+      Focsy
+      "${CMAKE_CURRENT_SOURCE_DIR}/examples/resources.res"
+    )
+
   endif()
 
 endif()
@@ -248,35 +433,85 @@ endif()
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
-# Install library and dependencies
-install(TARGETS zui glad
-  EXPORT zuiTargets
-  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+# -----------------------------------------------------------------------------
+# Install Libraries
+# -----------------------------------------------------------------------------
+
+install(
+  TARGETS
+    zui
+    glad
+
+  EXPORT
+    zuiTargets
+
+  LIBRARY
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}
+
+  ARCHIVE
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}
+
+  RUNTIME
+    DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
-# Install public headers
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/zui
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-  FILES_MATCHING PATTERN "*.h"
-  PATTERN "internal" EXCLUDE
+# -----------------------------------------------------------------------------
+# Install Public Headers
+# -----------------------------------------------------------------------------
+
+install(
+  DIRECTORY
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/zui
+
+  DESTINATION
+    ${CMAKE_INSTALL_INCLUDEDIR}
+
+  FILES_MATCHING
+    PATTERN "*.h"
+
+  PATTERN
+    "internal"
+    EXCLUDE
 )
 
-# Install generated version header
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/zui/version.h
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/zui
+# -----------------------------------------------------------------------------
+# Install Generated Version Header
+# -----------------------------------------------------------------------------
+
+install(
+  FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/include/zui/version.h
+
+  DESTINATION
+    ${CMAKE_INSTALL_INCLUDEDIR}/zui
 )
 
-# Install glad headers (vendored dependency)
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/external/glad/include/
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-  FILES_MATCHING PATTERN "*.h"
+# -----------------------------------------------------------------------------
+# Install GLAD Headers
+# -----------------------------------------------------------------------------
+
+install(
+  DIRECTORY
+    ${CMAKE_CURRENT_SOURCE_DIR}/external/glad/include/
+
+  DESTINATION
+    ${CMAKE_INSTALL_INCLUDEDIR}
+
+  FILES_MATCHING
+    PATTERN "*.h"
 )
 
-# Install assets
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/assets/
-  DESTINATION ${CMAKE_INSTALL_DATADIR}/zui
+# -----------------------------------------------------------------------------
+# Install Assets
+# -----------------------------------------------------------------------------
+
+install(
+  DIRECTORY
+    ${CMAKE_CURRENT_SOURCE_DIR}/assets/
+
+  DESTINATION
+    ${CMAKE_INSTALL_DATADIR}/zui
+
   PATTERN "*.ttf"
   PATTERN "*.svg"
   PATTERN "*.png"
@@ -284,52 +519,91 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/assets/
   PATTERN "*.frag"
 )
 
-# Export targets
-install(EXPORT zuiTargets
-  FILE zuiTargets.cmake
-  NAMESPACE zui::
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/zui
+# =============================================================================
+# CMake Package
+# =============================================================================
+
+install(
+  EXPORT
+    zuiTargets
+
+  FILE
+    zuiTargets.cmake
+
+  NAMESPACE
+    zui::
+
+  DESTINATION
+    ${CMAKE_INSTALL_LIBDIR}/cmake/zui
 )
 
-# Generate config file
+# -----------------------------------------------------------------------------
+# Config
+# -----------------------------------------------------------------------------
+
 configure_package_config_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/cmake/zuiConfig.cmake.in
   ${CMAKE_CURRENT_BINARY_DIR}/zuiConfig.cmake
-  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/zui
+
+  INSTALL_DESTINATION
+    ${CMAKE_INSTALL_LIBDIR}/cmake/zui
 )
 
-# Generate version file
+# -----------------------------------------------------------------------------
+# Version
+# -----------------------------------------------------------------------------
+
 write_basic_package_version_file(
   ${CMAKE_CURRENT_BINARY_DIR}/zuiConfigVersion.cmake
-  VERSION ${PROJECT_VERSION}
-  COMPATIBILITY SameMajorVersion
+
+  VERSION
+    ${PROJECT_VERSION}
+
+  COMPATIBILITY
+    SameMajorVersion
 )
 
-# Install CMake config files
-install(FILES
-  ${CMAKE_CURRENT_BINARY_DIR}/zuiConfig.cmake
-  ${CMAKE_CURRENT_BINARY_DIR}/zuiConfigVersion.cmake
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/zui
+# -----------------------------------------------------------------------------
+# Install Config Files
+# -----------------------------------------------------------------------------
+
+install(
+  FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/zuiConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/zuiConfigVersion.cmake
+
+  DESTINATION
+    ${CMAKE_INSTALL_LIBDIR}/cmake/zui
 )
 
-# Generate and install pkg-config file
+# =============================================================================
+# pkg-config
+# =============================================================================
+
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/cmake/zui.pc.in
   ${CMAKE_CURRENT_BINARY_DIR}/zui.pc
   @ONLY
 )
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/zui.pc
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
+install(
+  FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/zui.pc
+
+  DESTINATION
+    ${CMAKE_INSTALL_LIBDIR}/pkgconfig
 )
 
+# =============================================================================
 # Summary
+# =============================================================================
+
 message(STATUS "")
 message(STATUS "ZUI ${PROJECT_VERSION}")
 message(STATUS "  Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "  C compiler: ${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION}")
 message(STATUS "  Wayland:    ${WAYLAND_VERSION}")
 message(STATUS "  EGL:        ${EGL_VERSION}")
+message(STATUS "  WebP:       ${WEBP_VERSION}")
 message(STATUS "  Examples:   ${ZUI_BUILD_EXAMPLES}")
-message(STATUS "  Video MPV:  ${ZUI_VIDEO_MPV}")
 message(STATUS "")
