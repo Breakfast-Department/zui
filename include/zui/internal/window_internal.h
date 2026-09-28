@@ -1,9 +1,9 @@
 #ifndef ZUI_WINDOW_INTERNAL_H
 #define ZUI_WINDOW_INTERNAL_H
 
-#include "widget_internal.h"
 #include "wayland_platform.h"
 #include "egl_context.h"
+#include "widget_internal.h"
 
 typedef struct ZuiImage ZuiImage;
 

@@ -6,7 +6,6 @@
 typedef struct ZuiImage ZuiImage;
 typedef struct ZuiWidget ZuiWidget;
 
-ZuiWidget *zui_image_new(const char *path);
 ZuiImage *zui_image_create(const char *path);
 ZuiImage *zui_image_create_from_memory(const unsigned char *data, int len);
 void zui_image_destroy(ZuiImage *image);

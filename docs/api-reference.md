@@ -199,7 +199,6 @@ ZuiWidget *zui_button_as_widget(ZuiButton *button);
 ### Creation
 
 ```c
-ZuiWidget *zui_label_new(const char *text);
 ZuiLabel *zui_label_create(const char *text);
 ```
 
@@ -226,7 +225,6 @@ ZuiWidget *zui_label_as_widget(ZuiLabel *label);
 ### Creation
 
 ```c
-ZuiWidget *zui_panel_new(void);
 ZuiPanel *zui_panel_create(void);
 ```
 
@@ -274,7 +272,6 @@ ZuiWidget *zui_panel_as_widget(ZuiPanel *panel);
 ### Creation
 
 ```c
-ZuiWidget *zui_textinput_new(const char *placeholder);
 ZuiTextInput *zui_textinput_create(const char *placeholder);
 ```
 
@@ -312,7 +309,6 @@ void zui_textinput_on_change(ZuiTextInput *input, ZuiTextInputCallback callback,
 ### Creation
 
 ```c
-ZuiWidget *zui_slider_new(float min, float max, float value);
 ZuiSlider *zui_slider_create(float min, float max, float value);
 ```
 
@@ -346,7 +342,6 @@ void zui_slider_on_change(ZuiSlider *slider, ZuiSliderCallback callback, void *d
 ### Creation
 
 ```c
-ZuiWidget *zui_checkbox_new(const char *label);
 ZuiCheckbox *zui_checkbox_create(const char *label);
 ```
 
@@ -371,7 +366,6 @@ void zui_checkbox_on_change(ZuiCheckbox *cb, ZuiCheckboxCallback callback, void 
 ### Creation
 
 ```c
-ZuiWidget *zui_dropdown_new(const char *placeholder);
 ZuiDropdown *zui_dropdown_create(const char *placeholder);
 ```
 
@@ -398,7 +392,6 @@ void zui_dropdown_on_change(ZuiDropdown *dd, ZuiDropdownCallback callback, void 
 ### Creation
 
 ```c
-ZuiWidget *zui_progressbar_new(void);
 ZuiProgressBar *zui_progressbar_create(void);
 ```
 
@@ -423,7 +416,6 @@ void zui_progressbar_set_corner_radius(ZuiProgressBar *bar, float radius);
 ### Creation
 
 ```c
-ZuiWidget *zui_circularprogress_new(void);
 ZuiCircularProgress *zui_circularprogress_create(void);
 ```
 
@@ -463,7 +455,6 @@ void zui_circularprogress_on_click(ZuiCircularProgress *cp,
 ### Creation
 
 ```c
-ZuiWidget *zui_scrollview_new(void);
 ZuiScrollView *zui_scrollview_create(void);
 ```
 
@@ -487,7 +478,6 @@ void zui_scrollview_get_scroll(ZuiScrollView *sv, float *x, float *y);
 ### Creation
 
 ```c
-ZuiWidget *zui_gridview_new(int columns);
 ZuiGridView *zui_gridview_create(int columns);
 ```
 
@@ -515,7 +505,6 @@ void zui_gridview_clear(ZuiGridView *gv);
 ### Creation
 
 ```c
-ZuiWidget *zui_image_new(const char *path);
 ZuiImage *zui_image_create(const char *path);
 ZuiImage *zui_image_create_from_memory(const unsigned char *data, int len);
 ```
@@ -534,7 +523,6 @@ void zui_image_set_visible(ZuiImage *image, bool visible);
 ### Creation
 
 ```c
-ZuiWidget *zui_icon_new(const char *path);
 ZuiIcon *zui_icon_create(const char *path);
 ```
 
@@ -586,7 +574,6 @@ Paths allow drawing custom shapes with lines, curves, and arcs.
 
 ```c
 ZuiPath *zui_path_create(const ZuiPathCommand *commands, int count);
-ZuiPath *zui_path_new(void);
 void zui_path_destroy(ZuiPath *path);
 ```
 
@@ -634,7 +621,6 @@ Shape widgets render custom paths as interactive widgets with support for childr
 ### Creation
 
 ```c
-ZuiWidget *zui_shape_new(ZuiPath *path);
 void zui_shape_destroy(ZuiWidget *widget);
 ```
 

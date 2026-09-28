@@ -1,5 +1,6 @@
 #include "zui/color.h"
 #include "zui/widget.h"
+#include <stdio.h>
 #include <zui/internal/window_internal.h>
 #include <zui/internal/widget_internal.h>
 #include <zui/image.h>
@@ -95,7 +96,7 @@ static ZuiWidget *create_section(ZuiAlign align)
 
   section->layout_dir = ZUI_LAYOUT_HORIZONTAL;
   section->align = align;
-  section->spacing = 8.0f;
+  section->spacing = 0.0f;
   section->padding = WINDOW_DECORATION_PADDING;
 
   return section;
@@ -203,7 +204,7 @@ ZuiWindowDecoration *zui_default_window_decoration(ZuiWindow *window)
     return NULL;
   }
 
-  decor->container->background = ZUI_COLOR_HEX(0x141726);
+  decor->container->background = ZUI_COLOR_HEX(0x222222);
   decor->container->padding = WINDOW_DECORATION_PADDING;
   decor->container->preferred_size.height = WINDOW_DECORATION_HEIGHT;
   decor->container->fill_width = true;
@@ -219,6 +220,7 @@ ZuiWindowDecoration *zui_default_window_decoration(ZuiWindow *window)
     zui_widget_add_child(decor->container, decor->center_section);
   }
   if (decor->end_section) {
+    zui_widget_set_spacing(decor->end_section, 8.0f);
     zui_widget_add_child(decor->container, decor->end_section);
   }
 
@@ -277,7 +279,7 @@ void zui_window_decoration_destroy(ZuiWindowDecoration *decor)
 
 void zui_window_decoration_set_title(ZuiWindowDecoration *decor, const char *title)
 {
-  if (!decor || !decor->center_section) return;
+  if (!decor || !decor->start_section) return;
 
   if (decor->title_label) {
     zui_text_set_content((ZuiText*)decor->title_label, title);
@@ -285,7 +287,7 @@ void zui_window_decoration_set_title(ZuiWindowDecoration *decor, const char *tit
     decor->title_label = (ZuiWidget*)zui_text_create(title);
     if (decor->title_label) {
       zui_text_set_size((ZuiText*)decor->title_label, 16.0f);
-      zui_widget_add_child(decor->center_section, decor->title_label);
+      zui_widget_add_child(decor->start_section, decor->title_label);
     }
   }
 
@@ -308,7 +310,7 @@ void zui_window_decoration_set_logo(ZuiWindowDecoration *decor, const char *path
   if (path) {
     decor->logo = zui_image_create(path);
     if (decor->logo) {
-      zui_image_set_size(decor->logo, 16.0f, 16.0f);
+      zui_image_set_size(decor->logo, 18.0f, 18.0f);
       ZuiWidget *logo_widget = zui_image_widget(decor->logo);
       if (decor->start_section->child_count > 0) {
         for (int i = decor->start_section->child_count - 1; i >= 0; i--) {
@@ -343,7 +345,7 @@ void zui_window_decoration_set_logo_from_memory(ZuiWindowDecoration *decor,
 
   decor->logo = zui_image_create_from_memory(data, (int)size);
   if (decor->logo) {
-    zui_image_set_size(decor->logo, 16.0f, 16.0f);
+    zui_image_set_size(decor->logo, 18.0f, 18.0f);
     ZuiWidget *logo_widget = zui_image_widget(decor->logo);
     if (decor->start_section->child_count > 0) {
       for (int i = decor->start_section->child_count - 1; i >= 0; i--) {

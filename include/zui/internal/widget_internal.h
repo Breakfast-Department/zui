@@ -3,7 +3,6 @@
 
 #include "types.h"
 #include "renderer.h"
-#include "wayland_platform.h"
 
 #define ZUI_MAX_CHILDREN 64
 
@@ -32,7 +31,7 @@ typedef struct ZuiWidgetVTable {
   void (*on_focus)(ZuiWidget *widget, bool focused);
 } ZuiWidgetVTable;
 
-struct ZuiWidget {
+typedef struct ZuiWidget {
   ZuiWidgetType type;
   const ZuiWidgetVTable *vtable;
 
@@ -62,7 +61,7 @@ struct ZuiWidget {
 
   ZuiClickCallback on_click;
   void *user_data;
-};
+} ZuiWidget;
 
 ZuiWidget *zui_widget_create(size_t size, ZuiWidgetType type,
                               const ZuiWidgetVTable *vtable);

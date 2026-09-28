@@ -65,10 +65,10 @@ void on_click(ZuiWidget *widget, void *data)
 
 // Usage
 AppState state = { .counter = 0 };
-state.label = zui_label_new("Count: 0");
+state.label = zui_label_create("Count: 0");
 
 ZuiWidget *button = zui_button_new("Increment");
-zui_button_on_click(ZUI_BUTTON(button), on_click, &state);
+zui_button_on_click(button, on_click, &state);
 ```
 
 ### Value Change Events

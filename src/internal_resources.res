@@ -32,4 +32,4 @@ zui/icons/chevron-up.svg = ../assets/icons/x-chevron-up.svg
 zui/icons/chevron-down.svg = ../assets/icons/x-chevron-down.svg
 
 # Logo
-zui/logo/white.png = ../assets/logo/zui-logo-white.png
+zui/logo/zui.webp = ../assets/logo/zui-logo.webp

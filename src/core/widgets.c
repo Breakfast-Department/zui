@@ -2664,8 +2664,8 @@ ZuiWidget *zui_window_close_button(ZuiWindow *window)
                                            12.0f, ZUI_COLOR_RGB(1.0f, 1.0f, 1.0f));
   if (!btn) return NULL;
 
-  btn->base.normal_color = ZUI_COLOR_HEX(0xe81123);
-  btn->base.hover_color = ZUI_COLOR_HEX(0xf1707a);
+  btn->base.normal_color = ZUI_COLOR_HEX(0x333333);
+  btn->base.hover_color = ZUI_COLOR_HEX(0x333444);
   btn->base.pressed_color = ZUI_COLOR_HEX(0xc42b1c);
 
   btn->base.base.preferred_size.width = 20.0f;
@@ -2682,9 +2682,9 @@ ZuiWidget *zui_window_minimize_button(ZuiWindow *window)
                                            16.0f, ZUI_COLOR_HEX(0xffffff));
   if (!btn) return NULL;
 
-  btn->base.normal_color = ZUI_COLOR_HEX(0x182449);
-  btn->base.hover_color = ZUI_COLOR_HEX(0x1D2E62);
-  btn->base.pressed_color = ZUI_COLOR_HEX(0x11131F);
+  btn->base.normal_color = ZUI_COLOR_HEX(0x333333);
+  btn->base.hover_color = ZUI_COLOR_HEX(0x333444);
+  btn->base.pressed_color = ZUI_COLOR_HEX(0x444444);
 
   btn->base.base.preferred_size.width = 20.0f;
   btn->base.base.preferred_size.height = 20.0f;
@@ -2701,9 +2701,9 @@ ZuiWidget *zui_window_maximize_button(ZuiWindow *window)
   if (!btn) return NULL;
 
   btn->base.text = NULL;
-  btn->base.normal_color = ZUI_COLOR_HEX(0x182449);
-  btn->base.hover_color = ZUI_COLOR_HEX(0x1D2E62);
-  btn->base.pressed_color = ZUI_COLOR_HEX(0x11131F);
+  btn->base.normal_color = ZUI_COLOR_HEX(0x333333);
+  btn->base.hover_color = ZUI_COLOR_HEX(0x333444);
+  btn->base.pressed_color = ZUI_COLOR_HEX(0x444444);
 
   btn->base.base.preferred_size.width = 20.0f;
   btn->base.base.preferred_size.height = 20.0f;
@@ -3459,15 +3459,15 @@ static void gridview_layout_children(ZuiGridView *gv)
   float ch = gv->cell_height;
 
   if (cw <= 0) {
-    cw = (available_width - gv->gap_x * (gv->columns - 1)) / gv->columns;
+    cw = (available_width - gv->gap_x * (float)(gv->columns - 1)) / (float)gv->columns;
   }
   if (ch <= 0) {
     ch = cw;
   }
 
   int rows = ((int)gv->child_count + gv->columns - 1) / gv->columns;
-  gv->content_width = gv->columns * cw + (gv->columns - 1) * gv->gap_x + gv->padding * 2;
-  gv->content_height = rows * ch + (rows - 1) * gv->gap_y + gv->padding * 2;
+  gv->content_width = (float)gv->columns * cw + (float)(gv->columns - 1) * gv->gap_x + gv->padding * 2;
+  gv->content_height = (float)rows * ch + (float)(rows - 1) * gv->gap_y + gv->padding * 2;
 
   float max_scroll_x = gv->content_width - widget->bounds.width;
   float max_scroll_y = gv->content_height - widget->bounds.height;
@@ -3483,8 +3483,8 @@ static void gridview_layout_children(ZuiGridView *gv)
     int col = (int)i % gv->columns;
     int row = (int)i / gv->columns;
 
-    float x = widget->bounds.x + gv->padding + col * (cw + gv->gap_x) - gv->scroll_x;
-    float y = widget->bounds.y + gv->padding + row * (ch + gv->gap_y) - gv->scroll_y;
+    float x = widget->bounds.x + gv->padding + (float)col * (cw + gv->gap_x) - gv->scroll_x;
+    float y = widget->bounds.y + gv->padding + (float)row * (ch + gv->gap_y) - gv->scroll_y;
 
     zui_widget_set_bounds(gv->children[i], x, y, cw, ch);
     zui_widget_layout(gv->children[i]);
@@ -4427,10 +4427,10 @@ static void piechart_draw(ZuiWidget *widget, ZuiRenderer *renderer)
       char text_buf[64];
       if (chart->show_values && chart->texts[i] && chart->show_texts) {
         snprintf(text_buf, sizeof(text_buf), "%s\n%.0f%%",
-                 chart->texts[i], (chart->values[i] / total) * 100);
+                 chart->texts[i], (double)(chart->values[i] / total) * 100);
       } else if (chart->show_values) {
         snprintf(text_buf, sizeof(text_buf), "%.0f%%",
-                 (chart->values[i] / total) * 100);
+                 (double)(chart->values[i] / total) * 100);
       } else if (chart->texts[i]) {
         snprintf(text_buf, sizeof(text_buf), "%s", chart->texts[i]);
       } else {
@@ -5181,7 +5181,7 @@ ZuiCircularProgress *zui_circularprogress_create(void)
   if (!cp) return NULL;
 
   cp->value = 0;
-  cp->thickness = 8.0f;
+  cp->thickness = 18.0f;
   cp->track_color = ZUI_COLOR_HEX(0x333333);
   cp->fill_color = ZUI_COLOR_HEX(0x4a9eff);
   cp->text = NULL;

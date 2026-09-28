@@ -9,8 +9,8 @@ ZUI uses a flexbox-inspired layout system based on panels. This guide covers how
 Panels are the primary layout containers in ZUI. They arrange their children either vertically or horizontally.
 
 ```c
-ZuiWidget *panel = zui_panel_new();
-zui_panel_set_layout(ZUI_PANEL(panel), ZUI_LAYOUT_VERTICAL);
+ZuiPanel *panel = zui_panel_create();
+zui_panel_set_layout(panel, ZUI_LAYOUT_VERTICAL);
 ```
 
 ### Layout Direction

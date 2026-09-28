@@ -1,3 +1,5 @@
+#include "nanosvg/nanosvgrast.h"
+#include <time.h>
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb/stb_image.h>
 #include <webp/decode.h>
@@ -52,6 +54,25 @@ static bool is_webp_file(const char *path)
   if (len < 5) return false;
   const char *ext = path + len - 5;
   return (strcmp(ext, ".webp") == 0 || strcmp(ext, ".WEBP") == 0);
+}
+
+bool is_svg_data(const unsigned char *data, int len)
+{
+    if (!data || len <= 0)
+        return false;
+
+    const char *str = (const char *)data;
+
+    for (int i = 0; i < len - 3; i++) {
+        if (str[i] == '<' &&
+            str[i + 1] == 's' &&
+            str[i + 2] == 'v' &&
+            str[i + 3] == 'g') {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 static bool is_webp_data(const unsigned char *data, int len)
@@ -109,9 +130,11 @@ ZuiImage *zui_image_create(const char *path)
   if (zui_is_resource_path(path)) {
     size_t size;
     const unsigned char *res_data = zui_resource_get(path, &size);
+
     if (res_data && size > 0) {
       return zui_image_create_from_memory(res_data, (int)size);
     }
+
     return NULL;
   }
 
@@ -163,54 +186,121 @@ ZuiImage *zui_image_create(const char *path)
 
 ZuiImage *zui_image_create_from_memory(const unsigned char *data, int len)
 {
-  if (!data || len <= 0) {
-    return NULL;
-  }
+    if (!data || len <= 0)
+        return NULL;
 
-  int width, height;
-  unsigned char *pixels = NULL;
-  bool is_webp = is_webp_data(data, len);
+    int width = 0;
+    int height = 0;
+    unsigned char *pixels = NULL;
 
-  if (is_webp) {
-    pixels = load_webp_memory(data, len, &width, &height);
-  } else {
-    int channels;
-    stbi_set_flip_vertically_on_load(0);
-    pixels = stbi_load_from_memory(data, len, &width, &height, &channels, 4);
-  }
+    bool is_webp = is_webp_data(data, len);
+    bool is_svg = is_svg_data(data, len);
 
-  if (!pixels) {
-    return NULL;
-  }
-
-  ZuiImage *image = (ZuiImage *)zui_widget_create(
-    sizeof(ZuiImage), ZUI_WIDGET_IMAGE, &image_vtable);
-
-  if (!image) {
     if (is_webp) {
-      WebPFree(pixels);
+        pixels = load_webp_memory(data, len, &width, &height);
+
+    } else if (is_svg) {
+        char *svg_data = malloc((size_t)len + 1);
+
+        if (!svg_data)
+            return NULL;
+
+        memcpy(svg_data, data, (size_t)len);
+        svg_data[len] = '\0';
+
+        NSVGimage *svg = nsvgParse(
+            svg_data,
+            "px",
+            96.0f
+        );
+
+        free(svg_data);
+
+        if (!svg)
+            return NULL;
+
+        width = (int)ceilf(svg->width);
+        height = (int)ceilf(svg->height);
+
+        pixels = malloc((size_t)width * height * 4);
+
+        if (!pixels) {
+            nsvgDelete(svg);
+            return NULL;
+        }
+
+        NSVGrasterizer *rast = nsvgCreateRasterizer();
+
+        if (!rast) {
+            free(pixels);
+            nsvgDelete(svg);
+            return NULL;
+        }
+
+        nsvgRasterize(
+            rast,
+            svg,
+            0, 0,
+            1.0f,
+            pixels,
+            width,
+            height,
+            width * 4
+        );
+
+        nsvgDeleteRasterizer(rast);
+        nsvgDelete(svg);
     } else {
-      stbi_image_free(pixels);
+        int channels;
+
+        stbi_set_flip_vertically_on_load(0);
+
+        pixels = stbi_load_from_memory(
+            data,
+            len,
+            &width,
+            &height,
+            &channels,
+            4
+        );
     }
-    return NULL;
-  }
 
-  image->img_width = width;
-  image->img_height = height;
-  image->owns_data = true;
+    if (!pixels)
+        return NULL;
 
-  image->texture = zui_texture_create(pixels, width, height);
+    ZuiImage *image = (ZuiImage *)zui_widget_create(
+        sizeof(ZuiImage),
+        ZUI_WIDGET_IMAGE,
+        &image_vtable
+    );
 
-  if (is_webp) {
-    WebPFree(pixels);
-  } else {
-    stbi_image_free(pixels);
-  }
+    if (!image) {
+        if (is_webp)
+            WebPFree(pixels);
+        else
+            free(pixels);
 
-  image->base.preferred_size.width = (float)width;
-  image->base.preferred_size.height = (float)height;
+        return NULL;
+    }
 
-  return image;
+    image->img_width = width;
+    image->img_height = height;
+
+    image->texture = zui_texture_create(
+        pixels,
+        width,
+        height
+    );
+
+    if (is_webp)
+        WebPFree(pixels);
+    else
+        free(pixels);
+
+    image->base.preferred_size.width = (float)width;
+    image->base.preferred_size.height = (float)height;
+
+    return image;
 }
 
 void zui_image_destroy(ZuiImage *image)
